@@ -3,7 +3,6 @@
 #include <cstdint>
 
 #include "Actuators.h"
-#include "Log.h"
 #include "Network.h"
 #include "Sensors.h"
 #include "VideoStream.h"
