@@ -2,10 +2,9 @@
 
 #include <cstdint>
 
-#include "Actuators.h"
-#include "Network.h"
-#include "Sensors.h"
-#include "VideoStream.h"
+#include "IDrive.h"
+#include "ISensors.h"
+#include "IVideoStream.h"
 
 namespace gsd {
 class GsdSystem {
@@ -17,6 +16,7 @@ class GsdSystem {
         uint16_t localPort = 4210;
         uint32_t heartbeatTimeoutMs = 3000;
         uint32_t reconnectTimeoutMs = 150000;
+        bool wifiRangeMode = false;
     };
 
     GsdSystem(const GsdSystem&) = delete;
@@ -24,14 +24,15 @@ class GsdSystem {
     GsdSystem(GsdSystem&&) = delete;
     GsdSystem& operator=(GsdSystem&&) = delete;
 
-    GsdSystem(const GsdConfig& config);
+    GsdSystem(const GsdConfig& config, IVideoStream& videoStream, ISensors& sensors, IDrive& drive)
+        : _videoStream(videoStream), _sensors(sensors), _drive(drive) {}
 
+    void init();
     void update();
 
    private:
-    Network _network;
-    Sensors _sensors;
-    VideoStream _video;
-    Actuators _actuators;
+    IVideoStream& _videoStream;
+    ISensors& _sensors;
+    IDrive& _drive;
 };
 }  // namespace gsd
