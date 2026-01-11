@@ -1,14 +1,14 @@
 #pragma once
 
-#include <string>
+#include <etl/string.h>
 
 namespace gsd {
 class IVideoStream {
    public:
+    using Url = etl::string<160>;
+
     ~IVideoStream() = default;
-    virtual std::string init() = 0;
-    virtual void start() = 0;
+    virtual Url start() = 0;
     virtual void stop() = 0;
-    virtual void isOk() = 0;
 };
 }  // namespace gsd

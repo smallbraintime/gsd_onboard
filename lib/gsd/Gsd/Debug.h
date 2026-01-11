@@ -2,9 +2,10 @@
 
 #ifdef DEBUG
 
+#ifdef ARDUINO
 #include <Arduino.h>
 #include <cstdlib>
-#define GSD_INIT() Serial.begin(SERIAL_BAUD)
+#define GSD_DEBUG_INIT() Serial.begin(SERIAL_BAUD)
 #define GSD_LOG(msg)                  \
     do {                              \
         Serial.println("[LOG] " msg); \
@@ -17,6 +18,13 @@
             std::abort();                                                                    \
         }                                                                                    \
     } while (0)
+#else
+#include <cassert>
+#include <iostream>
+#define GSD_DEBUG_INIT() ((void)0)
+#define GSD_LOG(msg) std::cout << "[LOG] " << msg << std::endl
+#define GSD_ASSERT(cond) assert(cond)
+#endif
 
 #else
 
