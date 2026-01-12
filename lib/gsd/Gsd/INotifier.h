@@ -21,8 +21,8 @@ class Condition {
 class INotifier {
    public:
     ~INotifier() = default;
-    virtual void notifyEvery(uint32_t ms, Condition& condition) = 0;
-    virtual void notifyOnce(uint32_t ms, Condition& condition) = 0;
+    virtual void notifyEvery(uint32_t ms, Condition* condition) = 0;
+    virtual void notifyOnce(uint32_t ms, Condition* condition) = 0;
     virtual void stop() = 0;
 };
 }  // namespace gsd

@@ -96,8 +96,8 @@ class MavlinkGateway {
     void processMavlinkMessage(const mavlink_message_t& msg) {
         _disconnected.clear();
 
-        _heartbeatTxTimer.notifyEvery(_config.heartbeatTxIntervalMs, _shouldSendHeartbeat);
-        _connectionTimeoutTimer.notifyOnce(_config.connectionTimeoutMs, _disconnected);
+        _heartbeatTxTimer.notifyEvery(_config.heartbeatTxIntervalMs, &_shouldSendHeartbeat);
+        _connectionTimeoutTimer.notifyOnce(_config.connectionTimeoutMs, &_disconnected);
 
         switch (msg.msgid) {
             case MAVLINK_MSG_ID_HEARTBEAT:
@@ -116,7 +116,7 @@ class MavlinkGateway {
                 }
 
                 auto rateMs = static_cast<uint32_t>(1000 / request.req_message_rate);
-                _dataTxTimer.notifyEvery(rateMs, _shouldSendData);
+                _dataTxTimer.notifyEvery(rateMs, &_shouldSendData);
 
                 _videoStreamRequested.notify();
             } break;

@@ -101,8 +101,8 @@ struct MockSecurityKeyProvider : ISecurityKeyProvider {
 };
 
 struct MockNotifier : public INotifier {
-    void notifyEvery(uint32_t ms, Condition& condition) override { condition.notify(); }
-    void notifyOnce(uint32_t ms, Condition& condition) override {}
+    void notifyEvery(uint32_t ms, Condition* condition) override { condition->notify(); }
+    void notifyOnce(uint32_t ms, Condition* condition) override {}
     void stop() override {}
 };
 
