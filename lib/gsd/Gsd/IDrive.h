@@ -6,6 +6,7 @@ namespace gsd {
 class IDrive {
    public:
     virtual ~IDrive() = default;
-    virtual bool move(int16_t forward, int16_t yaw) = 0;
+    virtual void move(int16_t forward, int16_t yaw) = 0;
+    virtual bool isOk() = 0;
 };
 }  // namespace gsd
