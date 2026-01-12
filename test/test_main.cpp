@@ -1,7 +1,7 @@
 extern "C" {
 #include <mavlink/v2.0/common/mavlink.h>
 }
-#include <Gsd/MavlinkGateway.h>
+#include <GsdCore/MavlinkGateway.h>
 #include <etl/optional.h>
 #include <etl/string.h>
 #include <etl/vector.h>

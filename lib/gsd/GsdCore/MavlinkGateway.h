@@ -7,7 +7,6 @@ extern "C" {
 #include <etl/type_traits.h>
 #include <cstdint>
 
-#include "Debug.h"
 #include "IDrive.h"
 #include "IMavSocket.h"
 #include "INotifier.h"
@@ -31,7 +30,6 @@ class MavlinkGateway {
     };
 
     enum class VehicleState : uint8_t {
-        Unknown,
         Ok,
         Critical,
         Emergency,
@@ -88,9 +86,6 @@ class MavlinkGateway {
             if (mavlink_parse_char(MAVLINK_COMM_0, packet[i], &msg, &status))
                 processMavlinkMessage(msg);
         }
-
-        if (status.packet_rx_success_count <= 0)
-            GSD_LOG("failed to parse mavlink packet");
     }
 
     void processMavlinkMessage(const mavlink_message_t& msg) {
@@ -132,18 +127,13 @@ class MavlinkGateway {
 
                 _socket.changePassword(wifiConfig.ssid, wifiConfig.password);
             } break;
-            default:
-                GSD_LOG("unsupported mavlink message type");
         }
     }
 
     void sendHeartbeat() {
-        uint8_t systemState;
+        uint8_t systemState = MAV_STATE_UNINIT;
 
         switch (_vehicleState) {
-            case VehicleState::Unknown:
-                systemState = MAV_STATE_UNINIT;
-                break;
             case VehicleState::Ok:
                 systemState = MAV_STATE_ACTIVE;
                 break;
@@ -153,8 +143,6 @@ class MavlinkGateway {
             case VehicleState::Emergency:
                 systemState = MAV_STATE_EMERGENCY;
                 break;
-            default:
-                GSD_ASSERT(false);
         }
 
         _socket.write(_packetProvider.heartbeat(systemState));
@@ -198,7 +186,7 @@ class MavlinkGateway {
     IDrive& _drive;
     ISecurityKeyProvider& _keyProvider;
     MavPacketProvider _packetProvider;
-    VehicleState _vehicleState = VehicleState::Unknown;
+    VehicleState _vehicleState = VehicleState::Ok;
     Condition _disconnected{true};
     Condition _shouldSendData;
     Condition _shouldSendHeartbeat;
