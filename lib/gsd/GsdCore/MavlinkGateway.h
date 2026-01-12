@@ -50,7 +50,7 @@ class MavlinkGateway {
           _videoStream(videoStream),
           _drive(drive),
           _keyProvider(keyProvider),
-          _packetProvider(config.sysId, config.sysId) {}
+          _packetProvider(config.sysId, config.compId) {}
 
     void update() {
         if (_socket.read(_packet))

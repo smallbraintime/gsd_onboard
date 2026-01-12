@@ -27,6 +27,10 @@ struct MockMavSocket : public IMavSocket {
             password = newPassword;
     }
 
+    void setLowTxPower() override {}
+
+    void setHighTxPower() override {}
+
     void setHeartbeat() {
         readPacket.resize(MAVLINK_MAX_PACKET_LEN);
         mavlink_msg_heartbeat_pack_chan(1, 1, MAVLINK_COMM_0, &msg, 0, 0, 0, 0, 0);
@@ -97,7 +101,7 @@ struct MockVideoStream : IVideoStream {
 };
 
 struct MockSecurityKeyProvider : ISecurityKeyProvider {
-    const Key& getKey() {}
+    const Key getKey() {}
 };
 
 struct MockNotifier : public INotifier {

@@ -15,5 +15,7 @@ class IMavSocket {
     virtual void write(const MavPacket& packet) = 0;
     virtual bool read(MavPacket& packet) = 0;
     virtual void changePassword(const char* oldPassword, const char* newPassword) = 0;
+    virtual void setLowTxPower() = 0;
+    virtual void setHighTxPower() = 0;
 };
 }  // namespace gsd
