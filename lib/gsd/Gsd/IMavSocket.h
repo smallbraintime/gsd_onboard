@@ -11,8 +11,9 @@ using MavPacket = etl::vector<uint8_t, MAVLINK_MAX_PACKET_LEN>;
 
 class IMavSocket {
    public:
-    virtual ~IMavSocket() {};
+    virtual ~IMavSocket() = default;
     virtual void write(const MavPacket& packet) = 0;
     virtual bool read(MavPacket& packet) = 0;
+    virtual void changePassword(const char* oldPassword, const char* newPassword) = 0;
 };
 }  // namespace gsd

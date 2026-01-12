@@ -205,6 +205,14 @@ class MavlinkGateway {
                 if (!_drive.move(manualControl.x, manualControl.r))
                     newState = VehicleState::Emergency;
             } break;
+            case MAVLINK_MSG_ID_WIFI_CONFIG_AP: {
+                mavlink_wifi_config_ap_t wifiConfig;
+                mavlink_msg_wifi_config_ap_decode(&msg, &wifiConfig);
+
+                _mutex.lock();
+                _socket->changePassword(wifiConfig.ssid, wifiConfig.password);
+                _mutex.unlock();
+            } break;
             default:
                 GSD_LOG("unsupported mavlink message type");
         }

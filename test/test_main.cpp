@@ -3,6 +3,7 @@ extern "C" {
 }
 #include <Gsd/MavlinkGateway.h>
 #include <etl/optional.h>
+#include <etl/string.h>
 #include <etl/vector.h>
 #include <unity.h>
 
@@ -12,12 +13,18 @@ struct MockMavSocket : public IMavSocket {
     MavPacket readPacket;
     etl::vector<MavPacket, 10> writePackets;
     mavlink_message_t msg;
+    etl::string<64> password = "admin";
 
     void write(const MavPacket& packet) override { writePackets.push_back(packet); }
 
     bool read(MavPacket& packet) override {
         packet = readPacket;
         return true;
+    }
+
+    void changePassword(const char* oldPassword, const char* newPassword) override {
+        if (oldPassword == password)
+            password = newPassword;
     }
 
     void setHeartbeat() {
@@ -37,6 +44,13 @@ struct MockMavSocket : public IMavSocket {
     void setManualControl(int16_t x, int16_t r) {
         readPacket.resize(MAVLINK_MAX_PACKET_LEN);
         mavlink_msg_manual_control_pack(1, 1, &msg, 0, x, 0, 0, r, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+        const uint16_t len = mavlink_msg_to_send_buffer(readPacket.data(), &msg);
+        readPacket.resize(len);
+    }
+
+    void setWifiConfig(const char* oldPwd, const char* newPwd) {
+        readPacket.resize(MAVLINK_MAX_PACKET_LEN);
+        mavlink_msg_wifi_config_ap_pack(1, 1, &msg, oldPwd, newPwd, 0, 0);
         const uint16_t len = mavlink_msg_to_send_buffer(readPacket.data(), &msg);
         readPacket.resize(len);
     }
@@ -66,15 +80,16 @@ struct MockDrive : IDrive {
 
 struct MockVideoStream : IVideoStream {
     Url url = "url";
-    bool activatedStart = false;
-    bool activatedStop = false;
+    bool streaming = false;
 
     Url start() override {
-        activatedStart = true;
+        streaming = true;
         return url;
     }
 
-    void stop() override { activatedStop = true; }
+    void stop() override { streaming = false; }
+
+    bool isStreaming() override { return streaming; }
 };
 
 struct MockSecurityKeyProvider : ISecurityKeyProvider {
@@ -143,7 +158,7 @@ void videoStreamStartedAndValidDataSentAfterRequest() {
     mavlink_msg_battery_status_decode(&msg, &batStatus);
 
     TEST_ASSERT(mavGateway->isConnected());
-    TEST_ASSERT(videoStream->activatedStart);
+    TEST_ASSERT(videoStream->isStreaming());
     TEST_ASSERT_EQUAL(sensors->geo.value().altitude, gpsRaw.alt);
     TEST_ASSERT_EQUAL(sensors->geo.value().longitude, gpsRaw.lon);
     TEST_ASSERT_EQUAL(sensors->geo.value().latitude, gpsRaw.lat);
@@ -181,11 +196,19 @@ void vehicleStateChangedAfterMessages() {
                       mavGateway->vehicleState());
 }
 
+void passwordChanged() {
+    const char* newPassword = "nimda";
+    socket->setWifiConfig(socket->password.c_str(), newPassword);
+    mavGateway->update();
+    TEST_ASSERT(socket->password == newPassword);
+}
+
 int main(int argc, char** argv) {
     UNITY_BEGIN();
     RUN_TEST(connectionEstablishedOnHeartbeat);
     RUN_TEST(videoStreamStartedAndValidDataSentAfterRequest);
     RUN_TEST(driveMovedAfterManualControlCommand);
     RUN_TEST(vehicleStateChangedAfterMessages);
+    RUN_TEST(passwordChanged);
     UNITY_END();
 }
