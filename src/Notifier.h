@@ -11,16 +11,12 @@ class Notifier : public gsd::INotifier {
 
     Notifier() = default;
 
-    void notifyEvery(uint32_t ms, gsd::Condition* condition) {
-        _ticker.attach_ms(ms, notify, condition);
-    }
-    void notifyOnce(uint32_t ms, gsd::Condition* condition) {
-        _ticker.once_ms(ms, notify, condition);
-    };
-    void stop() { _ticker.detach(); };
+    void notifyEvery(uint32_t ms, gsd::Condition* condition) override;
+    void notifyOnce(uint32_t ms, gsd::Condition* condition) override;
+    void stop() override;
 
    private:
-    static void notify(gsd::Condition* condition) { condition->notify(); }
+    static void notify(gsd::Condition* condition);
 
     Ticker _ticker;
 };

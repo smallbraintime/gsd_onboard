@@ -21,6 +21,7 @@ class GsdSystem {
         IPAddress gateway = (192, 168, 4, 1);
         IPAddress subnet = (255, 255, 255, 0);
         uint16_t localPort = 14550;
+        bool ssidHidden = false;
         bool wifiLongRangeMode = false;
         bool msgSigning = false;
     };
@@ -36,7 +37,8 @@ class GsdSystem {
                   config.gateway,
                   config.subnet,
                   config.localPort,
-                  config.wifiLongRangeMode),
+                  config.wifiLongRangeMode,
+                  config.ssidHidden),
           _mavGateway({.msgSigning = config.msgSigning},
                       _socket,
                       _sensors,

@@ -19,7 +19,8 @@ class MavSocket : public gsd::IMavSocket {
                        const IPAddress& gateway,
                        const IPAddress& subnet,
                        uint16_t port,
-                       bool wifiLongRange);
+                       bool wifiLongRange,
+                       bool ssidHidden);
 
     bool begin();
     void stop();
@@ -38,6 +39,7 @@ class MavSocket : public gsd::IMavSocket {
     const IPAddress _subnet;
     const uint16_t _port;
     const bool _wifiLongRange;
+    const bool _ssidHidden;
     IPAddress _remoteAddress;
     uint16_t _remotePort;
     Preferences _preferences;

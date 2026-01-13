@@ -6,14 +6,16 @@ MavSocket::MavSocket(const char* ssid,
                      const IPAddress& gateway,
                      const IPAddress& subnet,
                      uint16_t port,
-                     bool wifiLongRange)
+                     bool wifiLongRange,
+                     bool ssidHidden)
     : _ssid(ssid),
       _password(defaultPassword),
       _address(address),
       _gateway(gateway),
       _subnet(subnet),
       _port(port),
-      _wifiLongRange(wifiLongRange) {
+      _wifiLongRange(wifiLongRange),
+      _ssidHidden(ssidHidden) {
     if (!_preferences.begin("gsd")) {
         Serial.print("failed to begin preferences");
         return;
@@ -47,9 +49,8 @@ bool MavSocket::begin() {
         esp_wifi_set_protocol(WIFI_IF_AP, WIFI_PROTOCOL_LR);
 
     const int channel = 0;
-    const int ssidHidden = 0;
     const int maxConnections = 1;
-    if (!WiFi.softAP(_ssid, _password.c_str(), channel, ssidHidden, maxConnections))
+    if (!WiFi.softAP(_ssid, _password.c_str(), channel, _ssidHidden, maxConnections))
         return false;
 
     if (!_udp.begin(_port))
