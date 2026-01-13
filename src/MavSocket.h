@@ -29,6 +29,7 @@ class MavSocket : public gsd::IMavSocket {
     void changePassword(const char* oldPassword, const char* newPassword) override;
     void setLowTxPower() override;
     void setHighTxPower() override;
+    Key getSecretKey() override;
 
    private:
     WiFiUDP _udp;

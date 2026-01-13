@@ -10,7 +10,6 @@ extern "C" {
 #include "IDrive.h"
 #include "IMavSocket.h"
 #include "INotifier.h"
-#include "ISecurityKeyProvider.h"
 #include "ISensors.h"
 #include "IVideoStream.h"
 #include "MavPacketProvider.h"
@@ -42,14 +41,12 @@ class MavlinkGateway {
                             IMavSocket& socket,
                             ISensors& sensors,
                             IVideoStream& videoStream,
-                            IDrive& drive,
-                            ISecurityKeyProvider& keyProvider)
+                            IDrive& drive)
         : _config(config),
           _socket(socket),
           _sensors(sensors),
           _videoStream(videoStream),
           _drive(drive),
-          _keyProvider(keyProvider),
           _packetProvider(config.sysId, config.compId) {}
 
     void update() {
@@ -184,7 +181,6 @@ class MavlinkGateway {
     ISensors& _sensors;
     IVideoStream& _videoStream;
     IDrive& _drive;
-    ISecurityKeyProvider& _keyProvider;
     MavPacketProvider _packetProvider;
     VehicleState _vehicleState = VehicleState::Ok;
     Condition _disconnected{true};

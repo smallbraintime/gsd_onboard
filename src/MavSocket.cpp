@@ -119,3 +119,25 @@ void MavSocket::setLowTxPower() {
 void MavSocket::setHighTxPower() {
     WiFi.setTxPower(WIFI_POWER_19_5dBm);
 }
+
+MavSocket::Key MavSocket::getSecretKey() {
+    Key key;
+
+    if (!_preferences.begin("gsd")) {
+        Serial.print("failed to begin the preferences");
+        return key;
+    }
+
+    if (!_preferences.getBytes("key", key.data(), key.size())) {
+        for (int i = 0; i < 32; i++) {
+            key[i] = (uint8_t)esp_random();
+        }
+
+        if (!_preferences.putBytes("key", key.data(), key.size()))
+            Serial.print("failed to write the key");
+    }
+
+    _preferences.end();
+
+    return key;
+}

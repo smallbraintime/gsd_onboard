@@ -31,6 +31,8 @@ struct MockMavSocket : public IMavSocket {
 
     void setHighTxPower() override {}
 
+    Key getSecretKey() override {}
+
     void setHeartbeat() {
         readPacket.resize(MAVLINK_MAX_PACKET_LEN);
         mavlink_msg_heartbeat_pack_chan(1, 1, MAVLINK_COMM_0, &msg, 0, 0, 0, 0, 0);
@@ -100,10 +102,6 @@ struct MockVideoStream : IVideoStream {
     bool isStreaming() override { return ret; }
 };
 
-struct MockSecurityKeyProvider : ISecurityKeyProvider {
-    const Key getKey() {}
-};
-
 struct MockNotifier : public INotifier {
     void notifyEvery(uint32_t ms, Condition* condition) override { condition->notify(); }
     void notifyOnce(uint32_t ms, Condition* condition) override {}
@@ -121,7 +119,6 @@ MockMavSocket* socket;
 MockSensors* sensors;
 MockVideoStream* videoStream;
 MockDrive* drive;
-MockSecurityKeyProvider* keyProvider;
 MavlinkGateway<MockNotifier>* mavGateway;
 
 void setUp() {
@@ -131,7 +128,7 @@ void setUp() {
     drive = new MockDrive();
 
     mavGateway = new MavlinkGateway<MockNotifier>({.connectionTimeoutMs = 200}, *socket, *sensors,
-                                                  *videoStream, *drive, *keyProvider);
+                                                  *videoStream, *drive);
 }
 
 void tearDown() {
