@@ -5,23 +5,17 @@
 #include "GsdCore/MavlinkGateway.h"
 
 #include "Drive.h"
+#include "GsdTicker.h"
 #include "MavSocket.h"
-#include "Notifier.h"
+#include "Pins.h"
+#include "Security.h"
 #include "Sensors.h"
 #include "VideoStream.h"
-
-constexpr const char* SSID = "gsd";
-constexpr const char* PASSWORD = "admin";
 
 class GsdSystem {
    public:
     struct Config {
-        IPAddress localAddress = (192, 168, 4, 1);
-        IPAddress gateway = (192, 168, 4, 1);
-        IPAddress subnet = (255, 255, 255, 0);
-        uint16_t localPort = 14550;
-        bool ssidHidden = false;
-        bool wifiLongRangeMode = false;
+        MavSocket::Config network;
         bool msgSigning = false;
     };
 
@@ -30,17 +24,20 @@ class GsdSystem {
 
     explicit GsdSystem(const Config& config)
         : _config(config),
-          _socket(SSID,
-                  PASSWORD,
-                  config.localAddress,
-                  config.gateway,
-                  config.subnet,
-                  config.localPort,
-                  config.wifiLongRangeMode,
-                  config.ssidHidden),
-          _mavGateway({.msgSigning = config.msgSigning}, _socket, _sensors, _videoStream, _drive) {}
+          _socket(config.network),
+          _mavGateway({.msgSigning = config.msgSigning},
+                      _socket,
+                      _sensors,
+                      _videoStream,
+                      _drive,
+                      _security) {}
 
-    void begin() { _socket.begin(); }
+    void begin() {
+        _drive.begin(ESC_LEFT, ESC_RIGHT);
+        _sensors.begin(GPS_RX, GPS_TX, BATTERY_IN);
+        _videoStream.begin();
+        _socket.begin();
+    }
     void stop() { _socket.stop(); }
     void update() { _mavGateway.update(); }
 
@@ -50,5 +47,6 @@ class GsdSystem {
     Sensors _sensors;
     VideoStream _videoStream;
     Drive _drive;
-    gsd::MavlinkGateway<Notifier> _mavGateway;
+    Security _security;
+    gsd::MavlinkGateway<GsdTicker> _mavGateway;
 };

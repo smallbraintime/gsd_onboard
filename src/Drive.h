@@ -1,6 +1,10 @@
 #pragma once
 
-#include "GsdCore/IDrive.h"
+#include "DShotESC.h"
+
+#include <GsdCore/IDrive.h>
+
+#include "Debug.h"
 
 class Drive : public gsd::IDrive {
    public:
@@ -9,6 +13,14 @@ class Drive : public gsd::IDrive {
 
     Drive() = default;
 
-    void move(int16_t forward, int16_t yaw) {};
-    bool isOk() { return true; };
+    bool begin(int8_t leftEscTxPin, int8_t rightEscTxPin) { return true; }
+    void stop() {}
+    void move(int16_t forward, int16_t yaw) {
+    }  // TODO: map to dshot and delegate to a separate task
+    bool isOk() { return _isOk; };
+
+   private:
+    DShotESC _leftEsc;
+    DShotESC _rightEsc;
+    bool _isOk = false;
 };

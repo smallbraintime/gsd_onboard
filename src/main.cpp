@@ -1,11 +1,13 @@
 #include <Arduino.h>
 
+#include "Debug.h"
 #include "GsdSystem.h"
 
 GsdSystem sys({});
 
 void setup() {
-    Serial.begin(SERIAL_BAUD);
+    GSD_INIT();
+    sys.begin();
 }
 
 void loop() {

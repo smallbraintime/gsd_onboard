@@ -1,47 +1,53 @@
 #pragma once
 
+#include <Arduino.h>
 #include <Preferences.h>
+#include <Ticker.h>
 #include <WiFi.h>
 #include <WiFiUdp.h>
 #include <esp_wifi.h>
+#include <etl/atomic.h>
 #include <etl/string.h>
 
 #include <GsdCore/IMavSocket.h>
 
+#include "Debug.h"
+
 class MavSocket : public gsd::IMavSocket {
    public:
+    struct Config {
+        const char* ssid = "gsd";
+        const char* defaultPassword = "gsdadmin123";
+        IPAddress address{192, 168, 4, 1};
+        IPAddress gateway{192, 168, 4, 1};
+        IPAddress subnet{255, 255, 255, 0};
+        uint16_t port = 14550;
+        bool wifiLongRange = false;
+        bool ssidHidden = false;
+        uint32_t connectionTimeoutMs = 15000;
+    };
+
     MavSocket(const MavSocket&) = delete;
     MavSocket& operator=(const MavSocket&) = delete;
 
-    explicit MavSocket(const char* ssid,
-                       const char* defaultPassword,
-                       const IPAddress& address,
-                       const IPAddress& gateway,
-                       const IPAddress& subnet,
-                       uint16_t port,
-                       bool wifiLongRange,
-                       bool ssidHidden);
+    explicit MavSocket(const Config& config);
 
     bool begin();
     void stop();
-    void write(const gsd::MavPacket& packet) override;
     bool read(gsd::MavPacket& packet) override;
+    void write(const gsd::MavPacket& packet, bool discreet) override;
+    bool peerAlive() override;
     void changePassword(const char* oldPassword, const char* newPassword) override;
-    void setLowTxPower() override;
-    void setHighTxPower() override;
-    Key getSecretKey() override;
 
    private:
+    void static connectionTimeout(etl::atomic<bool>* peerAlive);
+
     WiFiUDP _udp;
-    const char* _ssid;
     etl::string<64> _password;
-    const IPAddress _address;
-    const IPAddress _gateway;
-    const IPAddress _subnet;
-    const uint16_t _port;
-    const bool _wifiLongRange;
-    const bool _ssidHidden;
     IPAddress _remoteAddress;
     uint16_t _remotePort;
+    etl::atomic<bool> _peerAlive = false;
+    Ticker _ticker;
     Preferences _preferences;
+    const Config _config;
 };

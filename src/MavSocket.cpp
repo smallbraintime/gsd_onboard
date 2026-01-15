@@ -1,60 +1,54 @@
 #include "MavSocket.h"
 
-MavSocket::MavSocket(const char* ssid,
-                     const char* defaultPassword,
-                     const IPAddress& address,
-                     const IPAddress& gateway,
-                     const IPAddress& subnet,
-                     uint16_t port,
-                     bool wifiLongRange,
-                     bool ssidHidden)
-    : _ssid(ssid),
-      _password(defaultPassword),
-      _address(address),
-      _gateway(gateway),
-      _subnet(subnet),
-      _port(port),
-      _wifiLongRange(wifiLongRange),
-      _ssidHidden(ssidHidden) {
-    if (!_preferences.begin("gsd")) {
-        Serial.print("failed to begin preferences");
-        return;
-    }
+MavSocket::MavSocket(const Config& config) : _config(config) {}
+
+bool MavSocket::begin() {
+    if (!_preferences.begin("gsd"))
+        GSD_DEBUG("failed to begin preferences");
 
     String password = _preferences.getString("password");
     if (password.isEmpty()) {
-        if (!_preferences.putString("password", defaultPassword))
-            Serial.print("failed to write the password");
+        GSD_DEBUG("password not found");
+        if (!_preferences.putString("password", _password.c_str()))
+            GSD_DEBUG("failed to write the password");
     } else {
+        GSD_DEBUG("password found");
         _password = password.c_str();
     }
 
     _preferences.end();
-}
 
-bool MavSocket::begin() {
     WiFi.mode(WIFI_AP);
 
     WiFi.onEvent([this](WiFiEvent_t event, auto info) {
         if (event == ARDUINO_EVENT_WIFI_AP_STADISCONNECTED) {
             _remoteAddress = IPAddress();
             _remotePort = 0;
+            _peerAlive = false;
+            GSD_DEBUG("peer disconnected");
         }
     });
 
-    if (!WiFi.softAPConfig(_address, _gateway, _subnet))
+    if (!WiFi.softAPConfig(_config.address, _config.gateway, _config.subnet)) {
+        GSD_DEBUG("failed to config ap");
         return false;
+    }
 
-    if (_wifiLongRange)
+    if (_config.wifiLongRange)
         esp_wifi_set_protocol(WIFI_IF_AP, WIFI_PROTOCOL_LR);
 
     const int channel = 0;
     const int maxConnections = 1;
-    if (!WiFi.softAP(_ssid, _password.c_str(), channel, _ssidHidden, maxConnections))
+    if (!WiFi.softAP(_config.ssid, _password.c_str(), channel, _config.ssidHidden,
+                     maxConnections)) {
+        GSD_DEBUG("failed to init ap");
         return false;
+    }
 
-    if (!_udp.begin(_port))
+    if (!_udp.begin(_config.port)) {
+        GSD_DEBUG("failed to init udp");
         return false;
+    }
 
     return true;
 }
@@ -66,24 +60,19 @@ void MavSocket::stop() {
 
     _remoteAddress = IPAddress();
     _remotePort = 0;
-}
-
-void MavSocket::write(const gsd::MavPacket& packet) {
-    _udp.beginPacket(_remoteAddress, _remotePort);
-
-    _udp.write(packet.data(), packet.size());
-
-    if (!_udp.endPacket())
-        Serial.print("failed to send the packet");
+    _peerAlive = false;
 }
 
 bool MavSocket::read(gsd::MavPacket& packet) {
     int packetSize = _udp.parsePacket();
 
     if (packetSize) {
-        if (_remoteAddress[0] == 0) {
+        _ticker.once_ms(_config.connectionTimeoutMs, connectionTimeout, &_peerAlive);
+
+        if (!peerAlive()) {
             _remoteAddress = _udp.remoteIP();
             _remotePort = _udp.remotePort();
+            GSD_DEBUG("peer connected: %s %u\n", _remoteAddress.toString().c_str(), _remotePort);
         }
 
         if (_udp.remoteIP() == _remoteAddress) {
@@ -91,53 +80,55 @@ bool MavSocket::read(gsd::MavPacket& packet) {
             packet.resize(static_cast<size_t>(len));
             return true;
         }
+
+        GSD_DEBUG("packet read");
     }
 
     return false;
 }
 
-void MavSocket::changePassword(const char* oldPassword, const char* newPassword) {
-    if (oldPassword != _password)
+void MavSocket::write(const gsd::MavPacket& packet, bool discreet) {
+    if (_remoteAddress[0] == 0)
         return;
+
+    _udp.beginPacket(_remoteAddress, _remotePort);
+
+    _udp.write(packet.data(), packet.size());
+
+    if (!_udp.endPacket())
+        GSD_DEBUG("failed to send the packet");
+
+    GSD_DEBUG("packet sent");
+}
+
+bool MavSocket::peerAlive() {
+    return _peerAlive.load(etl::memory_order_relaxed);
+}
+
+void MavSocket::changePassword(const char* oldPassword, const char* newPassword) {
+    if (oldPassword != _password) {
+        GSD_DEBUG("invalid password");
+        return;
+    }
+
+    size_t len = strlen(newPassword);
+    if (len > _password.capacity() && len < 8) {
+        GSD_DEBUG("invalid length of the password");
+        return;
+    }
 
     _password = newPassword;
 
     if (!_preferences.begin("gsd"))
-        Serial.print("failed to begin preferences");
+        GSD_DEBUG("failed to begin preferences");
     if (!_preferences.putString("password", _password.c_str()))
-        Serial.print("failed to write the password");
+        GSD_DEBUG("failed to write the password");
     _preferences.end();
 
     stop();
     begin();
 }
 
-void MavSocket::setLowTxPower() {
-    WiFi.setTxPower(WIFI_POWER_2dBm);
-}
-
-void MavSocket::setHighTxPower() {
-    WiFi.setTxPower(WIFI_POWER_19_5dBm);
-}
-
-MavSocket::Key MavSocket::getSecretKey() {
-    Key key;
-
-    if (!_preferences.begin("gsd")) {
-        Serial.print("failed to begin the preferences");
-        return key;
-    }
-
-    if (!_preferences.getBytes("key", key.data(), key.size())) {
-        for (int i = 0; i < 32; i++) {
-            key[i] = (uint8_t)esp_random();
-        }
-
-        if (!_preferences.putBytes("key", key.data(), key.size()))
-            Serial.print("failed to write the key");
-    }
-
-    _preferences.end();
-
-    return key;
+void MavSocket::connectionTimeout(etl::atomic<bool>* peerAlive) {
+    peerAlive->store(false, etl::memory_order_relaxed);
 }

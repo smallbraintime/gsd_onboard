@@ -9,7 +9,9 @@ class VideoStream : public gsd::IVideoStream {
 
     VideoStream() = default;
 
-    Url start() { return Url(); };
-    void stop() {};
-    bool isStreaming() { return true; };
+    void begin() {}
+
+    Url start() override { return Url(); };
+    void stop() override {};
+    bool isOk() override { return true; };
 };
