@@ -10,6 +10,6 @@ class IVideoStream {
     ~IVideoStream() = default;
     virtual Url start() = 0;
     virtual void stop() = 0;
-    virtual bool isStreaming() = 0;
+    virtual bool isOk() = 0;
 };
 }  // namespace gsd

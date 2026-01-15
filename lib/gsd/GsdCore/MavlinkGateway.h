@@ -9,15 +9,16 @@ extern "C" {
 
 #include "IDrive.h"
 #include "IMavSocket.h"
-#include "INotifier.h"
+#include "ISecurity.h"
 #include "ISensors.h"
+#include "ITicker.h"
 #include "IVideoStream.h"
 #include "MavPacketProvider.h"
 
 namespace gsd {
 template <class T>
 class MavlinkGateway {
-    ETL_STATIC_ASSERT(etl::is_base_of<INotifier, T>::value);
+    ETL_STATIC_ASSERT(etl::is_base_of<ITicker, T>::value);
 
    public:
     struct Config {
@@ -28,12 +29,6 @@ class MavlinkGateway {
         bool msgSigning = false;  // TODO: implement signing
     };
 
-    enum class VehicleState : uint8_t {
-        Ok,
-        Critical,
-        Emergency,
-    };
-
     MavlinkGateway(const MavlinkGateway&) = delete;
     MavlinkGateway& operator=(const MavlinkGateway&) = delete;
 
@@ -41,55 +36,52 @@ class MavlinkGateway {
                             IMavSocket& socket,
                             ISensors& sensors,
                             IVideoStream& videoStream,
-                            IDrive& drive)
+                            IDrive& drive,
+                            ISecurity& security)
         : _config(config),
           _socket(socket),
           _sensors(sensors),
           _videoStream(videoStream),
           _drive(drive),
+          _security(security),
           _packetProvider(config.sysId, config.compId) {}
 
     void update() {
-        if (_socket.read(_packet))
-            parseMavPacket(_packet);
+        processIncoming();
+        sendPeriodic();
 
-        if (_shouldSendHeartbeat.checkAndClear()) {
-            resolveVehicleState();
-            sendHeartbeat();
-        }
-
-        if (_shouldSendData.checkAndClear()) {
-            sendData();
-        }
-
-        if (_disconnected.check()) {
+        if (!_socket.peerAlive()) {
             _videoStream.stop();
-            _dataTxTimer.stop();
-            _heartbeatTxTimer.stop();
-            _videoStreamRequested.clear();
+            _dataTxTicker.stop();
+            _heartbeatTxTicker.stop();
         }
     }
 
-    bool isConnected() const { return !_disconnected.check(); }
-
-    VehicleState vehicleState() const { return _vehicleState; }
-
    private:
-    void parseMavPacket(const MavPacket& packet) {
-        mavlink_message_t msg;
-        mavlink_status_t status;
+    void sendPeriodic() {
+        if (_heartbeatTxTicker.active() && _heartbeatTxTicker.ticked())
+            sendHeartbeat();
 
-        for (size_t i = 0; i < packet.size(); ++i) {
-            if (mavlink_parse_char(MAVLINK_COMM_0, packet[i], &msg, &status))
-                processMavlinkMessage(msg);
+        if (_dataTxTicker.active() && _dataTxTicker.ticked())
+            sendData();
+    }
+
+    void processIncoming() {
+        MavPacket packet;
+        if (_socket.read(packet)) {
+            mavlink_message_t msg;
+            mavlink_status_t status;
+
+            for (size_t i = 0; i < packet.size(); ++i) {
+                if (mavlink_parse_char(MAVLINK_COMM_0, packet[i], &msg, &status))
+                    processMavlinkMessage(msg);
+            }
         }
     }
 
     void processMavlinkMessage(const mavlink_message_t& msg) {
-        _disconnected.clear();
-
-        _heartbeatTxTimer.notifyEvery(_config.heartbeatTxIntervalMs, &_shouldSendHeartbeat);
-        _connectionTimeoutTimer.notifyOnce(_config.connectionTimeoutMs, &_disconnected);
+        if (!_heartbeatTxTicker.active())
+            _heartbeatTxTicker.start(_config.heartbeatTxIntervalMs);
 
         switch (msg.msgid) {
             case MAVLINK_MSG_ID_HEARTBEAT:
@@ -100,17 +92,14 @@ class MavlinkGateway {
                 mavlink_request_data_stream_t request;
                 mavlink_msg_request_data_stream_decode(&msg, &request);
 
-                if (!request.start_stop) {
-                    _dataTxTimer.stop();
-                    _videoStream.stop();
-                    _videoStreamRequested.clear();
-                    break;
-                }
-
                 auto rateMs = static_cast<uint32_t>(1000 / request.req_message_rate);
-                _dataTxTimer.notifyEvery(rateMs, &_shouldSendData);
+                if (!_dataTxTicker.active())
+                    _dataTxTicker.start(rateMs);
 
-                _videoStreamRequested.notify();
+                IVideoStream::Url url = _videoStream.start();
+                if (!url.empty())
+                    _socket.write(_packetProvider.videoStreamInfo(url.c_str()));
+
             } break;
             case MAVLINK_MSG_ID_MANUAL_CONTROL: {
                 mavlink_manual_control_t manualControl;
@@ -128,18 +117,14 @@ class MavlinkGateway {
     }
 
     void sendHeartbeat() {
-        uint8_t systemState = MAV_STATE_UNINIT;
+        uint8_t systemState;
 
-        switch (_vehicleState) {
-            case VehicleState::Ok:
-                systemState = MAV_STATE_ACTIVE;
-                break;
-            case VehicleState::Critical:
-                systemState = MAV_STATE_CRITICAL;
-                break;
-            case VehicleState::Emergency:
-                systemState = MAV_STATE_EMERGENCY;
-                break;
+        if (!_drive.isOk()) {
+            systemState = MAV_STATE_EMERGENCY;
+        } else if (!_videoStream.isOk() || !_sensors.isOk()) {
+            systemState = MAV_STATE_CRITICAL;
+        } else {
+            systemState = MAV_STATE_ACTIVE;
         }
 
         _socket.write(_packetProvider.heartbeat(systemState));
@@ -149,7 +134,6 @@ class MavlinkGateway {
         etl::optional<Geo> geoOpt = _sensors.getGeo();
         if (geoOpt) {
             Geo& geo = geoOpt.value();
-
             _socket.write(_packetProvider.gpsRaw(geo.latitude, geo.longitude, geo.altitude,
                                                  geo.velocity, geo.cog));
         }
@@ -159,37 +143,14 @@ class MavlinkGateway {
             _socket.write(_packetProvider.batteryStatus(batPerc));
     }
 
-    void resolveVehicleState() {
-        if (!_drive.isOk()) {
-            _vehicleState = VehicleState::Emergency;
-        } else if (_videoStreamRequested && !_videoStream.isStreaming()) {
-            IVideoStream::Url url = _videoStream.start();
-            if (!url.empty())
-                _socket.write(_packetProvider.videoStreamInfo(url.c_str()));
-
-            if (_videoStream.isStreaming())
-                _vehicleState = VehicleState::Critical;
-        } else if (!_sensors.isOk()) {
-            _vehicleState = VehicleState::Critical;
-        } else {
-            _vehicleState = VehicleState::Ok;
-        }
-    }
-
     const Config _config;
     IMavSocket& _socket;
     ISensors& _sensors;
     IVideoStream& _videoStream;
     IDrive& _drive;
+    ISecurity& _security;
     MavPacketProvider _packetProvider;
-    VehicleState _vehicleState = VehicleState::Ok;
-    Condition _disconnected{true};
-    Condition _shouldSendData;
-    Condition _shouldSendHeartbeat;
-    Condition _videoStreamRequested;
-    T _heartbeatTxTimer;
-    T _dataTxTimer;
-    T _connectionTimeoutTimer;
-    MavPacket _packet;
+    T _heartbeatTxTicker;
+    T _dataTxTicker;
 };
 }  // namespace gsd

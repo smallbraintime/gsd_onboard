@@ -16,7 +16,6 @@ class ISensors {
     virtual ~ISensors() = default;
     virtual etl::optional<Geo> getGeo() = 0;
     virtual int8_t getBatteryPercentage() = 0;
-    virtual uint64_t getTimestamp() = 0;
     virtual bool isOk() = 0;
 };
 }  // namespace gsd

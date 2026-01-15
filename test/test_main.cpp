@@ -14,24 +14,22 @@ struct MockMavSocket : public IMavSocket {
     etl::vector<MavPacket, 10> writePackets;
     mavlink_message_t msg;
     etl::string<64> password = "admin";
+    bool isConnected = false;
 
-    void write(const MavPacket& packet) override { writePackets.push_back(packet); }
+    void write(const MavPacket& packet, bool discreet) override { writePackets.push_back(packet); }
 
     bool read(MavPacket& packet) override {
+        isConnected = true;
         packet = readPacket;
         return true;
     }
+
+    bool peerAlive() { return true; };
 
     void changePassword(const char* oldPassword, const char* newPassword) override {
         if (oldPassword == password)
             password = newPassword;
     }
-
-    void setLowTxPower() override {}
-
-    void setHighTxPower() override {}
-
-    Key getSecretKey() override {}
 
     void setHeartbeat() {
         readPacket.resize(MAVLINK_MAX_PACKET_LEN);
@@ -71,8 +69,6 @@ struct MockSensors : ISensors {
 
     int8_t getBatteryPercentage() override { return batteryPercentage; }
 
-    uint64_t getTimestamp() override { return 0; }
-
     bool isOk() override { return ret; }
 };
 
@@ -90,22 +86,29 @@ struct MockDrive : IDrive {
 
 struct MockVideoStream : IVideoStream {
     Url url = "url";
-    bool ret = false;
+    bool isStreaming = false;
+    bool ok = true;
 
     Url start() override {
-        ret = true;
+        isStreaming = true;
         return url;
     }
 
-    void stop() override { ret = false; }
+    void stop() override { isStreaming = false; }
 
-    bool isStreaming() override { return ret; }
+    bool isOk() override { return ok; }
 };
 
-struct MockNotifier : public INotifier {
-    void notifyEvery(uint32_t ms, Condition* condition) override { condition->notify(); }
-    void notifyOnce(uint32_t ms, Condition* condition) override {}
+struct MockSecurity : public ISecurity {
+    Key getKey() { return {}; }
+    uint64_t getTimestamp() { return 0; }
+};
+
+struct MockTicker : public ITicker {
+    void start(uint32_t ms) override {}
     void stop() override {}
+    bool ticked() override { return true; }
+    bool active() override { return true; }
 };
 
 void parseMavPacket(const MavPacket& packet, mavlink_message_t& msg) {
@@ -119,16 +122,18 @@ MockMavSocket* socket;
 MockSensors* sensors;
 MockVideoStream* videoStream;
 MockDrive* drive;
-MavlinkGateway<MockNotifier>* mavGateway;
+MockSecurity* security;
+MavlinkGateway<MockTicker>* mavGateway;
 
 void setUp() {
     socket = new MockMavSocket();
     sensors = new MockSensors();
     videoStream = new MockVideoStream();
     drive = new MockDrive();
+    security = new MockSecurity();
 
-    mavGateway = new MavlinkGateway<MockNotifier>({.connectionTimeoutMs = 200}, *socket, *sensors,
-                                                  *videoStream, *drive);
+    mavGateway = new MavlinkGateway<MockTicker>({.connectionTimeoutMs = 200}, *socket, *sensors,
+                                                *videoStream, *drive, *security);
 }
 
 void tearDown() {
@@ -137,12 +142,13 @@ void tearDown() {
     delete videoStream;
     delete sensors;
     delete socket;
+    delete security;
 }
 
 void connectionEstablishedOnValidMessage() {
     socket->setHeartbeat();
     mavGateway->update();
-    TEST_ASSERT(mavGateway->isConnected());
+    TEST_ASSERT(socket->isConnected);
 }
 
 void videoStreamStartedAndValidDataSentAfterRequest() {
@@ -160,7 +166,7 @@ void videoStreamStartedAndValidDataSentAfterRequest() {
     mavlink_battery_status_t batStatus;
     mavlink_msg_battery_status_decode(&msg, &batStatus);
 
-    TEST_ASSERT(videoStream->isStreaming());
+    TEST_ASSERT(videoStream->isStreaming);
     TEST_ASSERT_EQUAL(sensors->geo.value().altitude, gpsRaw.alt);
     TEST_ASSERT_EQUAL(sensors->geo.value().longitude, gpsRaw.lon);
     TEST_ASSERT_EQUAL(sensors->geo.value().latitude, gpsRaw.lat);
@@ -181,27 +187,40 @@ void driveMovedAfterManualControlCommand() {
 }
 
 void vehicleStateChangedAfterMessages() {
+    mavlink_message_t msg;
+    mavlink_heartbeat_t heartbeat;
+
+    socket->writePackets.clear();
     socket->setHeartbeat();
     mavGateway->update();
-    TEST_ASSERT_EQUAL(MavlinkGateway<MockNotifier>::VehicleState::Ok, mavGateway->vehicleState());
+    parseMavPacket(socket->writePackets[0], msg);
+    mavlink_msg_heartbeat_decode(&msg, &heartbeat);
+    TEST_ASSERT_EQUAL(MAV_STATE_ACTIVE, heartbeat.system_status);
 
+    socket->writePackets.clear();
     socket->setManualControl(0, 0);
     drive->ret = false;
     mavGateway->update();
-    TEST_ASSERT_EQUAL(MavlinkGateway<MockNotifier>::VehicleState::Emergency,
-                      mavGateway->vehicleState());
+    parseMavPacket(socket->writePackets[0], msg);
+    mavlink_msg_heartbeat_decode(&msg, &heartbeat);
+    TEST_ASSERT_EQUAL(MAV_STATE_EMERGENCY, heartbeat.system_status);
 
+    socket->writePackets.clear();
     socket->setDataRequest();
     drive->ret = true;
+    sensors->ret = false;
     mavGateway->update();
-    TEST_ASSERT_EQUAL(MavlinkGateway<MockNotifier>::VehicleState::Critical,
-                      mavGateway->vehicleState());
+    parseMavPacket(socket->writePackets[1], msg);
+    mavlink_msg_heartbeat_decode(&msg, &heartbeat);
+    TEST_ASSERT_EQUAL(MAV_STATE_CRITICAL, heartbeat.system_status);
 
+    socket->writePackets.clear();
     socket->setDataRequest();
-    videoStream->ret = false;
+    videoStream->ok = false;
     mavGateway->update();
-    TEST_ASSERT_EQUAL(MavlinkGateway<MockNotifier>::VehicleState::Critical,
-                      mavGateway->vehicleState());
+    parseMavPacket(socket->writePackets[1], msg);
+    mavlink_msg_heartbeat_decode(&msg, &heartbeat);
+    TEST_ASSERT_EQUAL(MAV_STATE_CRITICAL, heartbeat.system_status);
 }
 
 void passwordChanged() {
