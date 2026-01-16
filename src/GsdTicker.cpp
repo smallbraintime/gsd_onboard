@@ -9,13 +9,16 @@ void GsdTicker::stop() {
 }
 
 bool GsdTicker::ticked() {
-    return _hasTicked.exchange(false, etl::memory_order_relaxed);
+    if (!_hasTicked)
+        return false;
+    _hasTicked = false;
+    return true;
 }
 
 bool GsdTicker::active() {
     return _ticker.active();
 }
 
-void GsdTicker::tick(etl::atomic<bool>* hasTicked) {
-    hasTicked->store(true, etl::memory_order_relaxed);
+void GsdTicker::tick(volatile bool* hasTicked) {
+    *hasTicked = true;
 }
