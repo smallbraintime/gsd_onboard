@@ -23,7 +23,6 @@ class MavlinkGateway {
    public:
     struct Config {
         uint32_t heartbeatTxIntervalMs = 1000;
-        uint32_t connectionTimeoutMs = 15000;
         uint8_t sysId = 1;
         uint8_t compId = 1;
         bool msgSigning = false;  // TODO: implement signing
@@ -67,13 +66,12 @@ class MavlinkGateway {
     }
 
     void processIncoming() {
-        MavPacket packet;
-        if (_socket.read(packet)) {
+        if (_socket.read(_packet)) {
             mavlink_message_t msg;
             mavlink_status_t status;
 
-            for (size_t i = 0; i < packet.size(); ++i) {
-                if (mavlink_parse_char(MAVLINK_COMM_0, packet[i], &msg, &status))
+            for (size_t i = 0; i < _packet.size(); ++i) {
+                if (mavlink_parse_char(MAVLINK_COMM_0, _packet[i], &msg, &status))
                     processMavlinkMessage(msg);
             }
         }
@@ -152,5 +150,6 @@ class MavlinkGateway {
     MavPacketProvider _packetProvider;
     T _heartbeatTxTicker;
     T _dataTxTicker;
+    MavPacket _packet;
 };
 }  // namespace gsd
