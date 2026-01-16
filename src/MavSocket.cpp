@@ -9,11 +9,13 @@ bool MavSocket::begin() {
     String password = _preferences.getString("password");
     if (password.isEmpty()) {
         GSD_DEBUG("password not found");
+
         if (!_preferences.putString("password", _password.c_str()))
             GSD_DEBUG("failed to write the password");
     } else {
-        GSD_DEBUG("password found");
         _password = password.c_str();
+
+        GSD_DEBUG("password found");
     }
 
     _preferences.end();
@@ -67,12 +69,16 @@ bool MavSocket::read(gsd::MavPacket& packet) {
     int packetSize = _udp.parsePacket();
 
     if (packetSize) {
+        GSD_DEBUG("packet read");
+
+        _ticker.detach();
         _ticker.once_ms(_config.connectionTimeoutMs, connectionTimeout, &_peerAlive);
 
         if (!peerAlive()) {
             _remoteAddress = _udp.remoteIP();
             _remotePort = _udp.remotePort();
-            GSD_DEBUG("peer connected: %s %u\n", _remoteAddress.toString().c_str(), _remotePort);
+            _peerAlive = true;
+            GSD_DEBUG("peer connected: %s %u", _remoteAddress.toString().c_str(), _remotePort);
         }
 
         if (_udp.remoteIP() == _remoteAddress) {
@@ -80,15 +86,13 @@ bool MavSocket::read(gsd::MavPacket& packet) {
             packet.resize(static_cast<size_t>(len));
             return true;
         }
-
-        GSD_DEBUG("packet read");
     }
 
     return false;
 }
 
 void MavSocket::write(const gsd::MavPacket& packet, bool discreet) {
-    if (_remoteAddress[0] == 0)
+    if (!_peerAlive)
         return;
 
     _udp.beginPacket(_remoteAddress, _remotePort);
@@ -102,7 +106,7 @@ void MavSocket::write(const gsd::MavPacket& packet, bool discreet) {
 }
 
 bool MavSocket::peerAlive() {
-    return _peerAlive.load(etl::memory_order_relaxed);
+    return _peerAlive;
 }
 
 void MavSocket::changePassword(const char* oldPassword, const char* newPassword) {
@@ -129,6 +133,6 @@ void MavSocket::changePassword(const char* oldPassword, const char* newPassword)
     begin();
 }
 
-void MavSocket::connectionTimeout(etl::atomic<bool>* peerAlive) {
-    peerAlive->store(false, etl::memory_order_relaxed);
+void MavSocket::connectionTimeout(volatile bool* peerAlive) {
+    *peerAlive = false;
 }

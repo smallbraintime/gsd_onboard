@@ -6,7 +6,6 @@
 #include <WiFi.h>
 #include <WiFiUdp.h>
 #include <esp_wifi.h>
-#include <etl/atomic.h>
 #include <etl/string.h>
 
 #include <GsdCore/IMavSocket.h>
@@ -24,7 +23,7 @@ class MavSocket : public gsd::IMavSocket {
         uint16_t port = 14550;
         bool wifiLongRange = false;
         bool ssidHidden = false;
-        uint32_t connectionTimeoutMs = 15000;
+        uint32_t connectionTimeoutMs = 5000;
     };
 
     MavSocket(const MavSocket&) = delete;
@@ -40,13 +39,13 @@ class MavSocket : public gsd::IMavSocket {
     void changePassword(const char* oldPassword, const char* newPassword) override;
 
    private:
-    void static connectionTimeout(etl::atomic<bool>* peerAlive);
+    void static connectionTimeout(volatile bool* peerAlive);
 
     WiFiUDP _udp;
     etl::string<64> _password;
     IPAddress _remoteAddress;
     uint16_t _remotePort;
-    etl::atomic<bool> _peerAlive = false;
+    volatile bool _peerAlive = false;
     Ticker _ticker;
     Preferences _preferences;
     const Config _config;
