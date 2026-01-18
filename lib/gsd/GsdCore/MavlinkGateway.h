@@ -117,23 +117,23 @@ class MavlinkGateway {
     void sendHeartbeat() {
         uint8_t systemState;
 
-        if (!_drive.isOk()) {
+        if (!_drive.isOk() || !_sensors.isBatteryOk() ||
+            (!_videoStream.isOk() && !_sensors.isGpsOk()))
             systemState = MAV_STATE_EMERGENCY;
-        } else if (!_videoStream.isOk() || !_sensors.isOk()) {
+        else if (!_videoStream.isOk() || !_sensors.isGpsOk())
             systemState = MAV_STATE_CRITICAL;
-        } else {
+        else
             systemState = MAV_STATE_ACTIVE;
-        }
 
         _socket.write(_packetProvider.heartbeat(systemState));
     }
 
     void sendData() {
-        etl::optional<Geo> geoOpt = _sensors.getGeo();
-        if (geoOpt) {
-            Geo& geo = geoOpt.value();
-            _socket.write(_packetProvider.gpsRaw(geo.latitude, geo.longitude, geo.altitude,
-                                                 geo.velocity, geo.cog));
+        etl::optional<Gps> gpsOpt = _sensors.getGps();
+        if (gpsOpt) {
+            Gps& gps = gpsOpt.value();
+            _socket.write(_packetProvider.gpsRaw(gps.latitude, gps.longitude, gps.altitude,
+                                                 gps.velocity, gps.cog));
         }
 
         int8_t batPerc = _sensors.getBatteryPercentage();

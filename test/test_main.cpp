@@ -61,19 +61,22 @@ struct MockMavSocket : public IMavSocket {
 };
 
 struct MockSensors : ISensors {
-    etl::optional<Geo> geo = Geo{1, 1, 1, 1, 1};
+    etl::optional<Gps> gps = Gps{1, 1, 1, 1, 1};
     int8_t batteryPercentage = 100;
-    bool ret = true;
+    bool batteryOk = true;
+    bool gpsOk = true;
 
-    etl::optional<Geo> getGeo() override { return geo; }
+    etl::optional<Gps> getGps() override { return gps; }
 
     int8_t getBatteryPercentage() override { return batteryPercentage; }
 
-    bool isOk() override { return ret; }
+    bool isBatteryOk() override { return batteryOk; }
+
+    bool isGpsOk() override { return gpsOk; }
 };
 
 struct MockDrive : IDrive {
-    bool ret = true;
+    bool ok = true;
     int16_t forward, yaw = 0;
 
     void move(int16_t forward, int16_t yaw) {
@@ -81,7 +84,7 @@ struct MockDrive : IDrive {
         this->yaw = yaw;
     }
 
-    bool isOk() override { return ret; }
+    bool isOk() override { return ok; }
 };
 
 struct MockVideoStream : IVideoStream {
@@ -132,8 +135,8 @@ void setUp() {
     drive = new MockDrive();
     security = new MockSecurity();
 
-    mavGateway = new MavlinkGateway<MockTicker>({.connectionTimeoutMs = 200}, *socket, *sensors,
-                                                *videoStream, *drive, *security);
+    mavGateway =
+        new MavlinkGateway<MockTicker>({}, *socket, *sensors, *videoStream, *drive, *security);
 }
 
 void tearDown() {
@@ -165,13 +168,17 @@ void videoStreamStartedAndValidDataSentAfterRequest() {
     parseMavPacket(socket->writePackets[3], msg);
     mavlink_battery_status_t batStatus;
     mavlink_msg_battery_status_decode(&msg, &batStatus);
+    mavlink_video_stream_information_t videoStreamInfo;
+    parseMavPacket(socket->writePackets[0], msg);
+    mavlink_msg_video_stream_information_decode(&msg, &videoStreamInfo);
 
     TEST_ASSERT(videoStream->isStreaming);
-    TEST_ASSERT_EQUAL(sensors->geo.value().altitude, gpsRaw.alt);
-    TEST_ASSERT_EQUAL(sensors->geo.value().longitude, gpsRaw.lon);
-    TEST_ASSERT_EQUAL(sensors->geo.value().latitude, gpsRaw.lat);
-    TEST_ASSERT_EQUAL(sensors->geo.value().velocity, gpsRaw.vel);
-    TEST_ASSERT_EQUAL(sensors->geo.value().cog, gpsRaw.cog);
+    TEST_ASSERT_EQUAL_STRING(videoStream->url.c_str(), videoStreamInfo.uri);
+    TEST_ASSERT_EQUAL(sensors->gps.value().altitude, gpsRaw.alt);
+    TEST_ASSERT_EQUAL(sensors->gps.value().longitude, gpsRaw.lon);
+    TEST_ASSERT_EQUAL(sensors->gps.value().latitude, gpsRaw.lat);
+    TEST_ASSERT_EQUAL(sensors->gps.value().velocity, gpsRaw.vel);
+    TEST_ASSERT_EQUAL(sensors->gps.value().cog, gpsRaw.cog);
     TEST_ASSERT_EQUAL(sensors->batteryPercentage, batStatus.battery_remaining);
 }
 
@@ -199,7 +206,10 @@ void vehicleStateChangedAfterMessages() {
 
     socket->writePackets.clear();
     socket->setManualControl(0, 0);
-    drive->ret = false;
+    drive->ok = false;
+    sensors->batteryOk = true;
+    sensors->gpsOk = true;
+    videoStream->ok = true;
     mavGateway->update();
     parseMavPacket(socket->writePackets[0], msg);
     mavlink_msg_heartbeat_decode(&msg, &heartbeat);
@@ -207,8 +217,10 @@ void vehicleStateChangedAfterMessages() {
 
     socket->writePackets.clear();
     socket->setDataRequest();
-    drive->ret = true;
-    sensors->ret = false;
+    drive->ok = true;
+    sensors->batteryOk = true;
+    sensors->gpsOk = false;
+    videoStream->ok = true;
     mavGateway->update();
     parseMavPacket(socket->writePackets[1], msg);
     mavlink_msg_heartbeat_decode(&msg, &heartbeat);
@@ -216,6 +228,20 @@ void vehicleStateChangedAfterMessages() {
 
     socket->writePackets.clear();
     socket->setDataRequest();
+    drive->ok = true;
+    sensors->batteryOk = true;
+    sensors->gpsOk = false;
+    videoStream->ok = false;
+    mavGateway->update();
+    parseMavPacket(socket->writePackets[1], msg);
+    mavlink_msg_heartbeat_decode(&msg, &heartbeat);
+    TEST_ASSERT_EQUAL(MAV_STATE_EMERGENCY, heartbeat.system_status);
+
+    socket->writePackets.clear();
+    socket->setDataRequest();
+    drive->ok = true;
+    sensors->batteryOk = true;
+    sensors->gpsOk = true;
     videoStream->ok = false;
     mavGateway->update();
     parseMavPacket(socket->writePackets[1], msg);

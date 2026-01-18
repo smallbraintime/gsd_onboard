@@ -44,7 +44,7 @@ const MavPacket& MavPacketProvider::batteryStatus(int8_t batteryRemaining) {
 const MavPacket& MavPacketProvider::videoStreamInfo(const char* url) {
     _buffer.resize(MAVLINK_MAX_PACKET_LEN);
 
-    mavlink_msg_video_stream_information_pack(_sysId, _compId, &_message, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    mavlink_msg_video_stream_information_pack(_sysId, _compId, &_message, 0, 1, 0, 0, 0, 0, 0, 0, 0,
                                               0, nullptr, url, 0, 0);
 
     const uint16_t len = mavlink_msg_to_send_buffer(_buffer.data(), &_message);
