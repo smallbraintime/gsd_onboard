@@ -1,24 +1,29 @@
 #include "Sensors.h"
 
-Sensors::Sensors(int32_t batteryMaxMv, int32_t batteryMinMv, float voltageDivider)
-    : _batteryMaxMv(batteryMaxMv),
+Sensors::Sensors(int8_t gpsRxPin,
+                 int8_t batteryRxPin,
+                 int32_t batteryMaxMv,
+                 int32_t batteryMinMv,
+                 float voltageDivider)
+    : _gpsPin(gpsRxPin),
+      _batteryPin(batteryRxPin),
+      _batteryMaxMv(batteryMaxMv),
       _batteryMinMv(batteryMinMv),
       _batteryRangeMv(_batteryMaxMv - _batteryMinMv),
       _voltageDivider(voltageDivider) {}
 
-void Sensors::begin(int8_t gpsRxPin, int8_t batteryRxPin) {
-    _gpsSerial.begin(9600, SERIAL_8N1, gpsRxPin, -1);
+void Sensors::begin() {
+    _gpsSerial.begin(9600, SERIAL_8N1, _gpsPin, -1);
 
-    _batPin = batteryRxPin;
-    pinMode(_batPin, INPUT);
+    pinMode(_batteryPin, INPUT);
     analogReadResolution(12);
-    analogSetPinAttenuation(_batPin, ADC_11db);
+    analogSetPinAttenuation(_batteryPin, ADC_11db);
 
     _isGpsOk = true;
     _isBatteryOk = true;
 }
 
-void Sensors::stop() {
+void Sensors::end() {
     _gpsSerial.end();
     _isBatteryOk = false;
     _isBatteryOk = false;
@@ -52,22 +57,23 @@ etl::optional<gsd::Gps> Sensors::getGps() {
             GSD_DEBUG("%i %i", gps.latitude, gps.longitude);
             return gps;
         }
+
+        vTaskDelay(pdMS_TO_TICKS(1));
     }
 
     return etl::nullopt;
 };
 
 int8_t Sensors::getBatteryPercentage() {
-    if (_batPin == -1) {
+    if (_batteryPin == -1) {
         _isBatteryOk = false;
         return -1;
     }
 
-    int32_t pinMv = analogReadMilliVolts(_batPin);
+    int32_t pinMv = analogReadMilliVolts(_batteryPin);
     int32_t batMv = static_cast<int32_t>(_voltageDivider * static_cast<float>(pinMv));
     int32_t offsetMv = batMv - _batteryMinMv;
     int32_t percentage = (offsetMv * 100) / _batteryRangeMv;
-    GSD_DEBUG("perc: %i, mv: %i", percentage, pinMv);
 
     if (pinMv < 50)
         _isBatteryOk = false;

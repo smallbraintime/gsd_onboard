@@ -19,7 +19,7 @@ class GsdSystem {
         struct {
             int32_t batteryMaxMv = 8400;
             int32_t batteryMinMv = 6400;
-            float voltageDivider = 3.0f;
+            float voltageDivider = 2.7f;
 
             uint8_t batteryRxPin = 14;
             uint8_t gpsRxPin = 0;
@@ -52,7 +52,10 @@ class GsdSystem {
     explicit GsdSystem(const Config& config)
         : _config(config),
           _socket(config.network),
-          _sensors(config.hardware.batteryMaxMv,
+          _drive(_config.hardware.escLeftPin, _config.hardware.escRightPin),
+          _sensors(config.hardware.gpsRxPin,
+                   config.hardware.batteryRxPin,
+                   config.hardware.batteryMaxMv,
                    config.hardware.batteryMinMv,
                    config.hardware.voltageDivider) {
         // camera_config_t camConfig{
@@ -83,8 +86,8 @@ class GsdSystem {
         //     .grab_mode = CAMERA_GRAB_WHEN_EMPTY,
         // };
         camera_config_t camConfig;
-        camConfig.ledc_channel = LEDC_CHANNEL_0;
-        camConfig.ledc_timer = LEDC_TIMER_0;
+        camConfig.ledc_channel = LEDC_CHANNEL_2;
+        camConfig.ledc_timer = LEDC_TIMER_2;
         camConfig.pin_d0 = 11;
         camConfig.pin_d1 = 9;
         camConfig.pin_d2 = 8;
@@ -119,18 +122,20 @@ class GsdSystem {
     }
 
     void begin() {
-        _drive.begin(_config.hardware.escLeftPin, _config.hardware.escRightPin);
-        _sensors.begin(_config.hardware.gpsRxPin, _config.hardware.batteryRxPin);
         _socket.begin();
+        _drive.begin();
     }
     void stop() { _socket.stop(); }
-    void update() { _mavGateway->update(); }
+    void update() {
+        _mavGateway->update();
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
 
    private:
     const Config _config;
     MavSocket _socket;
-    Sensors _sensors;
     Drive _drive;
+    Sensors _sensors;
     Security _security;
     VideoStream* _videoStream;
     gsd::MavlinkGateway<GsdTicker>* _mavGateway;

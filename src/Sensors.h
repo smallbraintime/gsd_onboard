@@ -14,10 +14,14 @@ class Sensors : public gsd::ISensors {
     Sensors(const Sensors&) = delete;
     Sensors& operator=(const Sensors&) = delete;
 
-    Sensors(int32_t batteryMaxMv, int32_t batteryMinMv, float voltageDivider);
+    Sensors(int8_t gpsRxPin,
+            int8_t batteryRxPin,
+            int32_t batteryMaxMv,
+            int32_t batteryMinMv,
+            float voltageDivider);
 
-    void begin(int8_t gpsRxPin, int8_t batteryRxPin);
-    void stop();
+    void begin();
+    void end();
     etl::optional<gsd::Gps> getGps() override;
     int8_t getBatteryPercentage() override;
     bool isBatteryOk() override;
@@ -26,11 +30,12 @@ class Sensors : public gsd::ISensors {
    private:
     TinyGPSPlus _gps;
     HardwareSerial _gpsSerial{1};
-    int8_t _batPin = -1;
-    int32_t _batteryMaxMv;
-    int32_t _batteryMinMv;
-    int32_t _batteryRangeMv;
-    float _voltageDivider;
+    const int8_t _gpsPin;
+    const int8_t _batteryPin;
+    const int32_t _batteryMaxMv;
+    const int32_t _batteryMinMv;
+    const int32_t _batteryRangeMv;
+    const float _voltageDivider;
     bool _isGpsOk = false;
     bool _isBatteryOk = false;
 };
