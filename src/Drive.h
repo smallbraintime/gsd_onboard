@@ -1,6 +1,7 @@
 #pragma once
 
-#include "DShotESC.h"
+#include <DShotESC.h>
+#include <etl/atomic.h>
 
 #include <GsdCore/IDrive.h>
 
@@ -11,16 +12,21 @@ class Drive : public gsd::IDrive {
     Drive(const Drive&) = delete;
     Drive& operator=(const Drive&) = delete;
 
-    Drive() = default;
+    Drive(int8_t leftEscTxPin, int8_t rightEscTxPin);
 
-    bool begin(int8_t leftEscTxPin, int8_t rightEscTxPin) { return true; }
-    void stop() {}
-    void move(int16_t forward, int16_t yaw) {
-    }  // TODO: map to dshot and delegate to a separate task
-    bool isOk() { return _isOk; };
+    void begin();
+    void end();
+    void move(int16_t forward, int16_t yaw) override;
+    bool isOk() override;
 
    private:
-    DShotESC _leftEsc;
-    DShotESC _rightEsc;
-    bool _isOk = false;
+    static void motorHandler(void* pvParameters);
+
+    TaskHandle_t _taskHandle = NULL;
+    etl::atomic<int16_t> _forward = 0;
+    etl::atomic<int16_t> _yaw = 0;
+    volatile bool _isOk = false;
+    volatile bool _running = false;
+    const int8_t _leftEscPin;
+    const int8_t _rightEscPin;
 };
