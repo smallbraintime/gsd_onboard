@@ -2,7 +2,7 @@
 
 #include <Arduino.h>
 
-#ifdef GSDEBUG
+#if GSDEBUG == 1
 
 #define GSD_INIT() Serial.begin(SERIAL_BAUD)
 #define GSD_DEBUG(...)          \
