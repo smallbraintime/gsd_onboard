@@ -23,7 +23,7 @@ class MavSocket : public gsd::IMavSocket {
         uint16_t port = 14550;
         bool wifiLongRange = false;
         bool ssidHidden = false;
-        uint32_t connectionTimeoutMs = 15000;
+        uint32_t connectionTimeoutMs = 3000;
     };
 
     MavSocket(const MavSocket&) = delete;

@@ -69,8 +69,6 @@ bool MavSocket::read(gsd::MavPacket& packet) {
     int packetSize = _udp.parsePacket();
 
     if (packetSize) {
-        GSD_DEBUG("packet read");
-
         _ticker.detach();
         _ticker.once_ms(_config.connectionTimeoutMs, connectionTimeout, &_peerAlive);
 
@@ -99,10 +97,9 @@ void MavSocket::write(const gsd::MavPacket& packet, bool discreet) {
 
     _udp.write(packet.data(), packet.size());
 
-    if (!_udp.endPacket())
-        GSD_DEBUG("failed to send the packet");
-
-    GSD_DEBUG("packet sent");
+    _udp.endPacket();
+    // if (!_udp.endPacket())
+    //     GSD_DEBUG("failed to send the packet");
 }
 
 bool MavSocket::peerAlive() {
