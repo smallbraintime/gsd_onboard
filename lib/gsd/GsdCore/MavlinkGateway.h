@@ -94,10 +94,9 @@ class MavlinkGateway {
                 if (!_dataTxTicker.active())
                     _dataTxTicker.start(rateMs);
 
-                IVideoStream::Url url = _videoStream.start();
-                if (!url.empty())
-                    _socket.write(_packetProvider.videoStreamInfo(url.c_str()));
-
+                _url = _videoStream.start();
+                if (!_url.empty())
+                    _socket.write(_packetProvider.videoStreamInfo(_url.c_str()));
             } break;
             case MAVLINK_MSG_ID_MANUAL_CONTROL: {
                 mavlink_manual_control_t manualControl;
@@ -130,15 +129,15 @@ class MavlinkGateway {
 
     void sendData() {
         etl::optional<Gps> gpsOpt = _sensors.getGps();
+        Gps gps{};
         if (gpsOpt) {
-            Gps& gps = gpsOpt.value();
-            _socket.write(_packetProvider.gpsRaw(gps.latitude, gps.longitude, gps.altitude,
-                                                 gps.velocity, gps.cog));
+            gps = gpsOpt.value();
         }
+        _socket.write(_packetProvider.gpsRaw(gps.latitude, gps.longitude, gps.altitude,
+                                             gps.velocity, gps.cog));
 
         int8_t batPerc = _sensors.getBatteryPercentage();
-        if (batPerc != -1)
-            _socket.write(_packetProvider.batteryStatus(batPerc));
+        _socket.write(_packetProvider.batteryStatus((batPerc != -1) ? batPerc : 0));
     }
 
     const Config _config;
@@ -151,5 +150,6 @@ class MavlinkGateway {
     T _heartbeatTxTicker;
     T _dataTxTicker;
     MavPacket _packet;
+    IVideoStream::Url _url;
 };
 }  // namespace gsd
