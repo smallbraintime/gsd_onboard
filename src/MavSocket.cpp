@@ -47,6 +47,8 @@ bool MavSocket::begin() {
         return false;
     }
 
+    esp_wifi_set_ps(WIFI_PS_NONE);
+
     if (!_udp.begin(_config.port)) {
         GSD_DEBUG("failed to init udp");
         return false;
@@ -132,4 +134,5 @@ void MavSocket::changePassword(const char* oldPassword, const char* newPassword)
 
 void MavSocket::connectionTimeout(volatile bool* peerAlive) {
     *peerAlive = false;
+    GSD_DEBUG("peer disconnected");
 }
