@@ -5,7 +5,7 @@ Drive::Drive(int8_t leftEscTxPin, int8_t rightEscTxPin)
 
 void Drive::begin() {
     _running = true;
-    xTaskCreate(motorHandler, "motors", 8192, this, 2, &_taskHandle);
+    xTaskCreatePinnedToCore(motorHandler, "motors", 8192, this, 2, &_taskHandle, 1);
 }
 
 void Drive::end() {
@@ -51,9 +51,6 @@ void Drive::motorHandler(void* pvParameters) {
         vTaskDelay(pdMS_TO_TICKS(10));
     }
 
-    // TickType_t lastWake = xTaskGetTickCount();
-    // const TickType_t period = pdMS_TO_TICKS(2);
-
     while (drive->_running) {
         esp_err_t result = ESP_FAIL;
 
@@ -71,8 +68,7 @@ void Drive::motorHandler(void* pvParameters) {
         else
             drive->_isOk = true;
 
-        vTaskDelay(pdMS_TO_TICKS(10));
-        // vTaskDelayUntil(&lastWake, period);
+        vTaskDelay(pdMS_TO_TICKS(1));
     }
 
     leftEsc.uninstall();
