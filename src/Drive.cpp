@@ -5,7 +5,7 @@ Drive::Drive(int8_t leftEscTxPin, int8_t rightEscTxPin)
 
 void Drive::begin() {
     _running = true;
-    xTaskCreate(motorHandler, "motors", 8192, this, 10, &_taskHandle);
+    xTaskCreate(motorHandler, "motors", 8192, this, 2, &_taskHandle);
 }
 
 void Drive::end() {
@@ -29,7 +29,12 @@ void Drive::motorHandler(void* pvParameters) {
 
     esp_err_t result = ESP_FAIL;
 
-    vTaskDelay(pdMS_TO_TICKS(1000));
+    pinMode(drive->_leftEscPin, OUTPUT);
+    pinMode(drive->_rightEscPin, OUTPUT);
+    digitalWrite(drive->_leftEscPin, LOW);
+    digitalWrite(drive->_rightEscPin, LOW);
+
+    vTaskDelay(pdMS_TO_TICKS(2000));
     result = leftEsc.install(static_cast<gpio_num_t>(drive->_leftEscPin), RMT_CHANNEL_0);
     result = rightEsc.install(static_cast<gpio_num_t>(drive->_rightEscPin), RMT_CHANNEL_1);
     if (result != 0)
@@ -40,11 +45,14 @@ void Drive::motorHandler(void* pvParameters) {
     if (result != 0)
         GSD_DEBUG("failed to init esc");
 
-    for (int i = 0; i < 500; i++) {
+    for (int i = 0; i < 2000; i++) {
         leftEsc.sendThrottle(0);
         rightEsc.sendThrottle(0);
         vTaskDelay(pdMS_TO_TICKS(10));
     }
+
+    // TickType_t lastWake = xTaskGetTickCount();
+    // const TickType_t period = pdMS_TO_TICKS(2);
 
     while (drive->_running) {
         esp_err_t result = ESP_FAIL;
@@ -52,8 +60,8 @@ void Drive::motorHandler(void* pvParameters) {
         int16_t f = drive->_forward.load();
         int16_t y = drive->_yaw.load();
 
-        int16_t left = constrain(f - y, 0, 1000);
-        int16_t right = constrain(f + y, 0, 1000);
+        const int16_t left = constrain(f - y, 0, 500);
+        const int16_t right = constrain(f + y, 0, 500);
 
         leftEsc.sendThrottle(left);
         rightEsc.sendThrottle(right);
@@ -63,7 +71,8 @@ void Drive::motorHandler(void* pvParameters) {
         else
             drive->_isOk = true;
 
-        vTaskDelay(pdMS_TO_TICKS(1));
+        vTaskDelay(pdMS_TO_TICKS(10));
+        // vTaskDelayUntil(&lastWake, period);
     }
 
     leftEsc.uninstall();
