@@ -17,9 +17,9 @@ class GsdSystem {
     struct Config {
         MavSocket::Config network;
         struct {
-            int32_t batteryMaxMv = 8400;
-            int32_t batteryMinMv = 6400;
-            float voltageDivider = 2.7f;
+            int32_t batteryMaxMv = 5000;
+            int32_t batteryMinMv = 4000;
+            float voltageDivider = 3.0f;
 
             uint8_t batteryRxPin = 14;
             uint8_t gpsRxPin = 0;
@@ -27,21 +27,33 @@ class GsdSystem {
             uint8_t escLeftPin = 21;
             uint8_t escRightPin = 47;
 
-            // camera
-            uint8_t d7 = 16;
-            uint8_t d6 = 17;
-            uint8_t d5Pin = 18;
-            uint8_t d4Pin = 12;
-            uint8_t d3Pin = 10;
-            uint8_t d2Pin = 8;
-            uint8_t d1Pin = 9;
-            uint8_t d0Pin = 11;
-            uint8_t xclkPin = 15;
-            uint8_t pclkPin = 13;
-            uint8_t vsyncPin = 6;
-            uint8_t hrefPin = 7;
-            uint8_t sccbSdaPin = 4;
-            uint8_t sccSclPin = 5;
+            camera_config_t camera{
+                .pin_pwdn = -1,
+                .pin_reset = -1,
+                .pin_xclk = 15,
+                .pin_sccb_sda = 4,
+                .pin_sccb_scl = 5,
+                .pin_d7 = 16,
+                .pin_d6 = 17,
+                .pin_d5 = 18,
+                .pin_d4 = 12,
+                .pin_d3 = 10,
+                .pin_d2 = 8,
+                .pin_d1 = 9,
+                .pin_d0 = 11,
+                .pin_vsync = 6,
+                .pin_href = 7,
+                .pin_pclk = 13,
+                .xclk_freq_hz = 8000000,
+                .ledc_timer = LEDC_TIMER_2,
+                .ledc_channel = LEDC_CHANNEL_2,
+                .pixel_format = PIXFORMAT_JPEG,
+                .frame_size = FRAMESIZE_QVGA,
+                .jpeg_quality = 12,
+                .fb_count = 2,
+                .fb_location = psramFound() ? CAMERA_FB_IN_PSRAM : CAMERA_FB_IN_DRAM,
+                .grab_mode = CAMERA_GRAB_LATEST,
+            };
         } hardware;
         bool msgSigning = false;
     };
@@ -49,90 +61,18 @@ class GsdSystem {
     GsdSystem(const GsdSystem&) = delete;
     GsdSystem& operator=(const GsdSystem&) = delete;
 
-    explicit GsdSystem(const Config& config)
-        : _config(config),
-          _socket(config.network),
-          _drive(_config.hardware.escLeftPin, _config.hardware.escRightPin),
-          _sensors(config.hardware.gpsRxPin,
-                   config.hardware.batteryRxPin,
-                   config.hardware.batteryMaxMv,
-                   config.hardware.batteryMinMv,
-                   config.hardware.voltageDivider) {
-        // camera_config_t camConfig{
-        //     .pin_pwdn = -1,
-        //     .pin_reset = -1,
-        //     .pin_xclk = XCLK,
-        //     .pin_sccb_sda = SCCB_SDA,
-        //     .pin_sccb_scl = SCCB_SCL,
-        //     .pin_d7 = D7,
-        //     .pin_d6 = D6,
-        //     .pin_d5 = D5,
-        //     .pin_d4 = D4,
-        //     .pin_d3 = D3,
-        //     .pin_d2 = D2,
-        //     .pin_d1 = D1,
-        //     .pin_d0 = D0,
-        //     .pin_vsync = VSYNC,
-        //     .pin_href = HREF,
-        //     .pin_pclk = PCLK,
-        //     .xclk_freq_hz = 16000000,
-        //     .ledc_timer = LEDC_TIMER_0,
-        //     .ledc_channel = LEDC_CHANNEL_0,
-        //     .pixel_format = PIXFORMAT_JPEG,
-        //     .frame_size = FRAMESIZE_VGA,
-        //     .jpeg_quality = 10,
-        //     .fb_count = 2,
-        //     .fb_location = psramFound() ? CAMERA_FB_IN_PSRAM : CAMERA_FB_IN_DRAM,
-        //     .grab_mode = CAMERA_GRAB_WHEN_EMPTY,
-        // };
-        camera_config_t camConfig;
-        camConfig.ledc_channel = LEDC_CHANNEL_2;
-        camConfig.ledc_timer = LEDC_TIMER_2;
-        camConfig.pin_d0 = 11;
-        camConfig.pin_d1 = 9;
-        camConfig.pin_d2 = 8;
-        camConfig.pin_d3 = 10;
-        camConfig.pin_d4 = 12;
-        camConfig.pin_d5 = 18;
-        camConfig.pin_d6 = 17;
-        camConfig.pin_d7 = 16;
-        camConfig.pin_xclk = 15;
-        camConfig.pin_pclk = 13;
-        camConfig.pin_vsync = 6;
-        camConfig.pin_href = 7;
-        camConfig.pin_sccb_sda = 4;
-        camConfig.pin_sccb_scl = 5;
-        camConfig.pin_pwdn = -1;
-        camConfig.pin_reset = -1;
-        camConfig.xclk_freq_hz = 16000000;
-        camConfig.pixel_format = PIXFORMAT_JPEG;
-        camConfig.frame_size = FRAMESIZE_QVGA;
-        camConfig.jpeg_quality = 10;
-        camConfig.fb_count = 1;
-        camConfig.fb_location = psramFound() ? CAMERA_FB_IN_PSRAM : CAMERA_FB_IN_DRAM,
+    explicit GsdSystem(const Config& config);
+    ~GsdSystem();
 
-        _videoStream = new VideoStream(camConfig);
-
-        _mavGateway = new gsd::MavlinkGateway<GsdTicker>(
-            {.msgSigning = config.msgSigning}, _socket, _sensors, *_videoStream, _drive, _security);
-    }
-    ~GsdSystem() {
-        delete _mavGateway;
-        delete _videoStream;
-    }
-
-    void begin() {
-        _socket.begin();
-        _drive.begin();
-    }
-    void stop() { _socket.stop(); }
-    void update() {
-        _mavGateway->update();
-        vTaskDelay(pdMS_TO_TICKS(10));
-    }
+    void begin();
+    void stop();
+    void update();
 
    private:
+    static void mavGatewayUpdate(void* pvParameters);
+
     const Config _config;
+    TaskHandle_t _taskHandle = NULL;
     MavSocket _socket;
     Drive _drive;
     Sensors _sensors;
