@@ -68,7 +68,7 @@ void Drive::motorHandler(void* pvParameters) {
         else
             drive->_isOk = true;
 
-        vTaskDelay(pdMS_TO_TICKS(1));
+        vTaskDelay(pdMS_TO_TICKS(20));
     }
 
     leftEsc.uninstall();
