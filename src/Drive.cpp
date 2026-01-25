@@ -60,8 +60,8 @@ void Drive::motorHandler(void* pvParameters) {
         const int16_t left = constrain(f - y, 0, 500);
         const int16_t right = constrain(f + y, 0, 500);
 
-        leftEsc.sendThrottle(left);
-        rightEsc.sendThrottle(right);
+        result = leftEsc.sendThrottle(left);
+        result = rightEsc.sendThrottle(right);
 
         if (result != 0)
             drive->_isOk = false;
