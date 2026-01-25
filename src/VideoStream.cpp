@@ -15,7 +15,7 @@ gsd::IVideoStream::Url VideoStream::start() {
     if (_taskHandle != NULL || _isStreaming || _isOk)
         return _url;
 
-    _rtsp.maxRTSPClients = 2;
+    _rtsp.maxRTSPClients = 1;
     _rtsp.transport = RTSPServer::VIDEO_ONLY;
 
     if (!_rtsp.init()) {
