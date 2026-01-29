@@ -18,6 +18,10 @@ void Drive::move(int16_t forward, int16_t yaw) {
     _yaw = constrain(yaw, -1000, 1000);
 }
 
+void Drive::recover() {
+    _isRecovering = true;
+}
+
 bool Drive::isOk() {
     return _isOk;
 };
@@ -54,16 +58,34 @@ void Drive::motorHandler(void* pvParameters) {
     while (drive->_running) {
         esp_err_t result = ESP_FAIL;
 
-        int16_t f = drive->_forward.load();
-        int16_t y = drive->_yaw.load();
+        int16_t left = 0;
+        int16_t right = 0;
 
-        const int16_t left = constrain(f - y, 0, 500);
-        const int16_t right = constrain(f + y, 0, 500);
+        if (drive->_isRecovering) {
+            // etl::optional<int16_t> leftResult = drive->_driveHistory.rewind(0);
+            // etl::optional<int16_t> rightResult = drive->_driveHistory.rewind(1);
+
+            // if (leftResult && rightResult) {
+            //     left = leftResult.value();
+            //     right = rightResult.value();
+            // } else {
+            //     drive->_isRecovering = false;
+            // }
+        } else {
+            int16_t f = drive->_forward.load();
+            int16_t y = drive->_yaw.load();
+
+            left = constrain(f - y, 0, 500);
+            right = constrain(f + y, 0, 500);
+
+            // drive->_driveHistory.push(0, left);
+            // drive->_driveHistory.push(1, right);
+        }
 
         result = leftEsc.sendThrottle(left);
         result = rightEsc.sendThrottle(right);
 
-        if (result != 0)
+        if (result != ESP_OK)
             drive->_isOk = false;
         else
             drive->_isOk = true;

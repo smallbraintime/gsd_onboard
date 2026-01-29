@@ -6,6 +6,7 @@
 #include <GsdCore/IDrive.h>
 
 #include "Debug.h"
+#include "DriveHistory.h"
 
 class Drive : public gsd::IDrive {
    public:
@@ -17,6 +18,7 @@ class Drive : public gsd::IDrive {
     void begin();
     void end();
     void move(int16_t forward, int16_t yaw) override;
+    void recover() override;
     bool isOk() override;
 
    private:
@@ -27,6 +29,8 @@ class Drive : public gsd::IDrive {
     etl::atomic<int16_t> _yaw = 0;
     volatile bool _isOk = false;
     volatile bool _running = false;
+    volatile bool _isRecovering = false;
     const int8_t _leftEscPin;
     const int8_t _rightEscPin;
+    DriveHistory<1000, 2> _driveHistory{2};
 };

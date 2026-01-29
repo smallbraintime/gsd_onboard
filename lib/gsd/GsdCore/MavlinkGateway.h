@@ -53,6 +53,7 @@ class MavlinkGateway {
             _videoStream.stop();
             _dataTxTicker.stop();
             _heartbeatTxTicker.stop();
+            _drive.recover();
         }
     }
 
@@ -129,15 +130,15 @@ class MavlinkGateway {
 
     void sendData() {
         etl::optional<Gps> gpsOpt = _sensors.getGps();
-        Gps gps{};
         if (gpsOpt) {
-            gps = gpsOpt.value();
+            Gps gps = gpsOpt.value();
+            _socket.write(_packetProvider.gpsRaw(gps.latitude, gps.longitude, gps.altitude,
+                                                 gps.velocity, gps.cog));
         }
-        _socket.write(_packetProvider.gpsRaw(gps.latitude, gps.longitude, gps.altitude,
-                                             gps.velocity, gps.cog));
 
-        int8_t batPerc = _sensors.getBatteryPercentage();
-        _socket.write(_packetProvider.batteryStatus((batPerc != -1) ? batPerc : 0));
+        int8_t batteryPercentage = _sensors.getBatteryPercentage();
+        if (batteryPercentage != -1)
+            _socket.write(_packetProvider.batteryStatus(batteryPercentage));
     }
 
     const Config _config;

@@ -79,10 +79,12 @@ struct MockDrive : IDrive {
     bool ok = true;
     int16_t forward, yaw = 0;
 
-    void move(int16_t forward, int16_t yaw) {
+    void move(int16_t forward, int16_t yaw) override {
         this->forward = forward;
         this->yaw = yaw;
     }
+
+    void recover() override {}
 
     bool isOk() override { return ok; }
 };

@@ -32,8 +32,6 @@ void Sensors::end() {
 etl::optional<gsd::Gps> Sensors::getGps() {
     while (_gpsSerial.available() > 0) {
         if (_gps.encode(_gpsSerial.read())) {
-            GSD_DEBUG("speed: %i", _gps.speed.kmph());
-
             gsd::Gps gps{};
 
             if (_gps.location.isValid()) {
@@ -54,7 +52,6 @@ etl::optional<gsd::Gps> Sensors::getGps() {
             if (_gps.course.isValid())
                 gps.cog = static_cast<uint32_t>(_gps.course.value());
 
-            GSD_DEBUG("%i %i", gps.latitude, gps.longitude);
             return gps;
         }
 

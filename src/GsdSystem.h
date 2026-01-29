@@ -17,8 +17,8 @@ class GsdSystem {
     struct Config {
         MavSocket::Config network;
         struct {
-            int32_t batteryMaxMv = 5000;
-            int32_t batteryMinMv = 4000;
+            int32_t batteryMaxMv = 7400;
+            int32_t batteryMinMv = 6400;
             float voltageDivider = 3.0f;
 
             uint8_t batteryRxPin = 14;
