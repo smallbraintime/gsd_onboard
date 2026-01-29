@@ -61,26 +61,26 @@ void Drive::motorHandler(void* pvParameters) {
         int16_t left = 0;
         int16_t right = 0;
 
-        if (drive->_isRecovering) {
-            // etl::optional<int16_t> leftResult = drive->_driveHistory.rewind(0);
-            // etl::optional<int16_t> rightResult = drive->_driveHistory.rewind(1);
+        // if (drive->_isRecovering) {
+        // etl::optional<int16_t> leftResult = drive->_driveHistory.rewind(0);
+        // etl::optional<int16_t> rightResult = drive->_driveHistory.rewind(1);
 
-            // if (leftResult && rightResult) {
-            //     left = leftResult.value();
-            //     right = rightResult.value();
-            // } else {
-            //     drive->_isRecovering = false;
-            // }
-        } else {
-            int16_t f = drive->_forward.load();
-            int16_t y = drive->_yaw.load();
+        // if (leftResult && rightResult) {
+        //     left = leftResult.value();
+        //     right = rightResult.value();
+        // } else {
+        //     drive->_isRecovering = false;
+        // }
+        // } else {
+        int16_t f = drive->_forward.load();
+        int16_t y = drive->_yaw.load();
 
-            left = constrain(f - y, 0, 500);
-            right = constrain(f + y, 0, 500);
+        left = constrain(f - y, 0, 500);
+        right = constrain(f + y, 0, 500);
 
-            // drive->_driveHistory.push(0, left);
-            // drive->_driveHistory.push(1, right);
-        }
+        // drive->_driveHistory.push(0, left);
+        // drive->_driveHistory.push(1, right);
+        // }
 
         result = leftEsc.sendThrottle(left);
         result = rightEsc.sendThrottle(right);
