@@ -104,11 +104,6 @@ struct MockVideoStream : IVideoStream {
     bool isOk() override { return ok; }
 };
 
-struct MockSecurity : public ISecurity {
-    Key getKey() { return {}; }
-    uint64_t getTimestamp() { return 0; }
-};
-
 struct MockTicker : public ITicker {
     void start(uint32_t ms) override {}
     void stop() override {}
@@ -127,7 +122,6 @@ MockMavSocket* socket;
 MockSensors* sensors;
 MockVideoStream* videoStream;
 MockDrive* drive;
-MockSecurity* security;
 MavlinkGateway<MockTicker>* mavGateway;
 
 void setUp() {
@@ -135,10 +129,8 @@ void setUp() {
     sensors = new MockSensors();
     videoStream = new MockVideoStream();
     drive = new MockDrive();
-    security = new MockSecurity();
 
-    mavGateway =
-        new MavlinkGateway<MockTicker>({}, *socket, *sensors, *videoStream, *drive, *security);
+    mavGateway = new MavlinkGateway<MockTicker>({}, *socket, *sensors, *videoStream, *drive);
 }
 
 void tearDown() {
@@ -147,7 +139,6 @@ void tearDown() {
     delete videoStream;
     delete sensors;
     delete socket;
-    delete security;
 }
 
 void connectionEstablishedOnValidMessage() {

@@ -3,7 +3,7 @@
 GsdSystem::GsdSystem(const Config& config)
     : _config(config),
       _socket(config.network),
-      _drive(_config.hardware.escLeftPin, _config.hardware.escRightPin),
+      _drive(config.hardware.d0, config.hardware.d1, config.hardware.d2, config.hardware.d3),
       _sensors(config.hardware.gpsRxPin,
                config.hardware.batteryRxPin,
                config.hardware.batteryMaxMv,
@@ -11,8 +11,7 @@ GsdSystem::GsdSystem(const Config& config)
                config.hardware.voltageDivider) {
     _videoStream = new VideoStream(config.hardware.camera);
 
-    _mavGateway = new gsd::MavlinkGateway<GsdTicker>({.msgSigning = config.msgSigning}, _socket,
-                                                     _sensors, *_videoStream, _drive, _security);
+    _mavGateway = new gsd::MavlinkGateway<GsdTicker>({}, _socket, _sensors, *_videoStream, _drive);
 }
 
 GsdSystem::~GsdSystem() {
@@ -25,7 +24,6 @@ void GsdSystem::begin() {
     _sensors.begin();
     _videoStream->begin();
     _socket.begin();
-    _videoStream->start();
     xTaskCreatePinnedToCore(mavGatewayUpdate, "mavGateway", 8192, _mavGateway, 1, &_taskHandle, 1);
 }
 
@@ -45,6 +43,6 @@ void GsdSystem::mavGatewayUpdate(void* pvParameters) {
     while (true) {
         if (mavGateway)
             mavGateway->update();
-        vTaskDelay(pdMS_TO_TICKS(50));
+        vTaskDelay(pdMS_TO_TICKS(20));
     }
 }

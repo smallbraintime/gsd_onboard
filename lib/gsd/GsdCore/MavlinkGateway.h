@@ -9,7 +9,6 @@ extern "C" {
 
 #include "IDrive.h"
 #include "IMavSocket.h"
-#include "ISecurity.h"
 #include "ISensors.h"
 #include "ITicker.h"
 #include "IVideoStream.h"
@@ -25,7 +24,6 @@ class MavlinkGateway {
         uint32_t heartbeatTxIntervalMs = 1000;
         uint8_t sysId = 1;
         uint8_t compId = 1;
-        bool msgSigning = false;  // TODO: implement signing
     };
 
     MavlinkGateway(const MavlinkGateway&) = delete;
@@ -35,14 +33,12 @@ class MavlinkGateway {
                             IMavSocket& socket,
                             ISensors& sensors,
                             IVideoStream& videoStream,
-                            IDrive& drive,
-                            ISecurity& security)
+                            IDrive& drive)
         : _config(config),
           _socket(socket),
           _sensors(sensors),
           _videoStream(videoStream),
           _drive(drive),
-          _security(security),
           _packetProvider(config.sysId, config.compId) {}
 
     void update() {
@@ -146,7 +142,6 @@ class MavlinkGateway {
     ISensors& _sensors;
     IVideoStream& _videoStream;
     IDrive& _drive;
-    ISecurity& _security;
     MavPacketProvider _packetProvider;
     T _heartbeatTxTicker;
     T _dataTxTicker;

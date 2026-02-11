@@ -8,7 +8,6 @@
 #include "Drive.h"
 #include "GsdTicker.h"
 #include "MavSocket.h"
-#include "Security.h"
 #include "Sensors.h"
 #include "VideoStream.h"
 
@@ -24,8 +23,10 @@ class GsdSystem {
             uint8_t batteryRxPin = 14;
             uint8_t gpsRxPin = 0;
 
-            uint8_t escLeftPin = 21;
-            uint8_t escRightPin = 47;
+            uint8_t d0 = 21;
+            uint8_t d1 = 47;
+            uint8_t d2 = 0;
+            uint8_t d3 = 0;
 
             camera_config_t camera{
                 .pin_pwdn = -1,
@@ -55,7 +56,6 @@ class GsdSystem {
                 .grab_mode = CAMERA_GRAB_LATEST,
             };
         } hardware;
-        bool msgSigning = false;
     };
 
     GsdSystem(const GsdSystem&) = delete;
@@ -76,7 +76,6 @@ class GsdSystem {
     MavSocket _socket;
     Drive _drive;
     Sensors _sensors;
-    Security _security;
     VideoStream* _videoStream;
     gsd::MavlinkGateway<GsdTicker>* _mavGateway;
 };
