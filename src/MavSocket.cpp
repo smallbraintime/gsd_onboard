@@ -27,7 +27,6 @@ bool MavSocket::begin() {
             _remoteAddress = IPAddress();
             _remotePort = 0;
             _peerAlive = false;
-            GSD_DEBUG("peer disconnected");
         }
     });
 
@@ -46,8 +45,6 @@ bool MavSocket::begin() {
         GSD_DEBUG("failed to init ap");
         return false;
     }
-
-    esp_wifi_set_ps(WIFI_PS_NONE);
 
     if (!_udp.begin(_config.port)) {
         GSD_DEBUG("failed to init udp");

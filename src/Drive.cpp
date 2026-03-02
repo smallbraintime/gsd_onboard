@@ -1,100 +1,58 @@
 #include "Drive.h"
 
-Drive::Drive(int8_t leftEscTxPin, int8_t rightEscTxPin)
-    : _leftEscPin(leftEscTxPin), _rightEscPin(rightEscTxPin) {}
+Drive::Drive(int8_t d0, int8_t d1, int8_t d2, int8_t d3) : _d0(d0), _d1(d1), _d2(d2), _d3(d3) {}
 
 void Drive::begin() {
-    _running = true;
-    xTaskCreatePinnedToCore(motorHandler, "motors", 8192, this, 2, &_taskHandle, 1);
+    if (ledcSetup(0, _frequency, _resolution) && ledcSetup(1, _frequency, _resolution) &&
+        ledcSetup(2, _frequency, _resolution) && ledcSetup(3, _frequency, _resolution))
+        _isOk = true;
+    else
+        GSD_DEBUG("failed to init ledc");
+
+    ledcAttachPin(_d0, 0);
+    ledcAttachPin(_d1, 1);
+    ledcAttachPin(_d2, 2);
+    ledcAttachPin(_d3, 3);
+
+    ledcWrite(0, 0);
+    ledcWrite(1, 0);
+    ledcWrite(2, 0);
+    ledcWrite(3, 0);
 }
 
 void Drive::end() {
-    _running = false;
-    vTaskDelete(_taskHandle);
+    ledcDetachPin(_d0);
+    ledcDetachPin(_d1);
+    ledcDetachPin(_d2);
+    ledcDetachPin(_d3);
 }
 
 void Drive::move(int16_t forward, int16_t yaw) {
-    _forward = constrain(forward, 0, 1000);
-    _yaw = constrain(yaw, -1000, 1000);
-}
+    if (forward != _lastForward.load() || yaw != _lastYaw.load()) {
+        const int16_t left = constrain(forward + yaw, -1000, 1000);
+        const int16_t right = constrain(forward - yaw, -1000, 1000);
 
-void Drive::recover() {
-    _isRecovering = true;
+        if (left >= 0) {
+            ledcWrite(1, 0);
+            ledcWrite(0, map(left, 0, 1000, 0, 255));
+        } else {
+            ledcWrite(1, map(abs(left), 0, 1000, 0, 255));
+            ledcWrite(0, 0);
+        }
+
+        if (right >= 0) {
+            ledcWrite(3, 0);
+            ledcWrite(2, map(right, 0, 1000, 0, 255));
+        } else {
+            ledcWrite(3, map(abs(right), 0, 1000, 0, 255));
+            ledcWrite(2, 0);
+        }
+    }
+
+    _lastForward = forward;
+    _lastYaw = yaw;
 }
 
 bool Drive::isOk() {
     return _isOk;
 };
-
-void Drive::motorHandler(void* pvParameters) {
-    Drive* drive = static_cast<Drive*>(pvParameters);
-    DShotESC leftEsc;
-    DShotESC rightEsc;
-
-    esp_err_t result = ESP_FAIL;
-
-    pinMode(drive->_leftEscPin, OUTPUT);
-    pinMode(drive->_rightEscPin, OUTPUT);
-    digitalWrite(drive->_leftEscPin, LOW);
-    digitalWrite(drive->_rightEscPin, LOW);
-
-    vTaskDelay(pdMS_TO_TICKS(2000));
-    result = leftEsc.install(static_cast<gpio_num_t>(drive->_leftEscPin), RMT_CHANNEL_0);
-    result = rightEsc.install(static_cast<gpio_num_t>(drive->_rightEscPin), RMT_CHANNEL_1);
-    if (result != 0)
-        GSD_DEBUG("failed to install esc");
-
-    result = leftEsc.init();
-    result = rightEsc.init();
-    if (result != 0)
-        GSD_DEBUG("failed to init esc");
-
-    for (int i = 0; i < 2000; i++) {
-        leftEsc.sendThrottle(0);
-        rightEsc.sendThrottle(0);
-        vTaskDelay(pdMS_TO_TICKS(10));
-    }
-
-    while (drive->_running) {
-        esp_err_t result = ESP_FAIL;
-
-        int16_t left = 0;
-        int16_t right = 0;
-
-        // if (drive->_isRecovering) {
-        // etl::optional<int16_t> leftResult = drive->_driveHistory.rewind(0);
-        // etl::optional<int16_t> rightResult = drive->_driveHistory.rewind(1);
-
-        // if (leftResult && rightResult) {
-        //     left = leftResult.value();
-        //     right = rightResult.value();
-        // } else {
-        //     drive->_isRecovering = false;
-        // }
-        // } else {
-        int16_t f = drive->_forward.load();
-        int16_t y = drive->_yaw.load();
-
-        left = constrain(f - y, 0, 500);
-        right = constrain(f + y, 0, 500);
-
-        // drive->_driveHistory.push(0, left);
-        // drive->_driveHistory.push(1, right);
-        // }
-
-        result = leftEsc.sendThrottle(left);
-        result = rightEsc.sendThrottle(right);
-
-        if (result != ESP_OK)
-            drive->_isOk = false;
-        else
-            drive->_isOk = true;
-
-        vTaskDelay(pdMS_TO_TICKS(20));
-    }
-
-    leftEsc.uninstall();
-    rightEsc.uninstall();
-
-    drive->_isOk = false;
-}

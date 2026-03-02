@@ -40,9 +40,10 @@ void GsdSystem::update() {
 void GsdSystem::mavGatewayUpdate(void* pvParameters) {
     gsd::MavlinkGateway<GsdTicker>* mavGateway =
         static_cast<gsd::MavlinkGateway<GsdTicker>*>(pvParameters);
+
     while (true) {
         if (mavGateway)
             mavGateway->update();
-        vTaskDelay(pdMS_TO_TICKS(20));
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
 }

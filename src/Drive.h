@@ -1,36 +1,31 @@
 #pragma once
 
-#include <DShotESC.h>
 #include <etl/atomic.h>
 
 #include <GsdCore/IDrive.h>
 
 #include "Debug.h"
-#include "DriveHistory.h"
 
 class Drive : public gsd::IDrive {
    public:
     Drive(const Drive&) = delete;
     Drive& operator=(const Drive&) = delete;
 
-    Drive(int8_t leftEscTxPin, int8_t rightEscTxPin);
+    Drive(int8_t d0, int8_t d1, int8_t d2, int8_t d3);
 
     void begin();
     void end();
     void move(int16_t forward, int16_t yaw) override;
-    void recover() override;
     bool isOk() override;
 
    private:
-    static void motorHandler(void* pvParameters);
-
-    TaskHandle_t _taskHandle = NULL;
-    etl::atomic<int16_t> _forward = 0;
-    etl::atomic<int16_t> _yaw = 0;
+    etl::atomic<int16_t> _lastForward = 0;
+    etl::atomic<int16_t> _lastYaw = 0;
     volatile bool _isOk = false;
-    volatile bool _running = false;
-    volatile bool _isRecovering = false;
-    const int8_t _leftEscPin;
-    const int8_t _rightEscPin;
-    DriveHistory<1000, 2> _driveHistory{2};
+    const int8_t _d0;
+    const int8_t _d1;
+    const int8_t _d2;
+    const int8_t _d3;
+    const uint32_t _frequency = 20000;
+    const uint8_t _resolution = 8;
 };

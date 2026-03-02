@@ -23,10 +23,10 @@ class GsdSystem {
             uint8_t batteryRxPin = 14;
             uint8_t gpsRxPin = 0;
 
-            uint8_t d0 = 21;
-            uint8_t d1 = 47;
-            uint8_t d2 = 0;
-            uint8_t d3 = 0;
+            uint8_t d0 = 3;
+            uint8_t d1 = 46;
+            uint8_t d2 = 45;
+            uint8_t d3 = 47;
 
             camera_config_t camera{
                 .pin_pwdn = -1,

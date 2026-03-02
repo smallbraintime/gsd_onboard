@@ -1,0 +1,96 @@
+#include "EscDrive.h"
+
+EscDrive::EscDrive(int8_t leftEscTxPin, int8_t rightEscTxPin)
+    : _leftEscPin(leftEscTxPin), _rightEscPin(rightEscTxPin) {}
+
+void EscDrive::begin() {
+    _running = true;
+    xTaskCreatePinnedToCore(motorHandler, "motors", 8192, this, 2, &_taskHandle, 1);
+}
+
+void EscDrive::end() {
+    _running = false;
+    vTaskDelete(_taskHandle);
+}
+
+void EscDrive::move(int16_t forward, int16_t yaw) {
+    _forward = constrain(forward, 0, 1000);
+    _yaw = constrain(yaw, -1000, 1000);
+}
+
+bool EscDrive::isOk() {
+    return _isOk;
+};
+
+void EscDrive::motorHandler(void* pvParameters) {
+    EscDrive* drive = static_cast<EscDrive*>(pvParameters);
+    DShotESC leftEsc;
+    DShotESC rightEsc;
+
+    esp_err_t result = ESP_FAIL;
+
+    pinMode(drive->_leftEscPin, OUTPUT);
+    pinMode(drive->_rightEscPin, OUTPUT);
+    digitalWrite(drive->_leftEscPin, LOW);
+    digitalWrite(drive->_rightEscPin, LOW);
+
+    vTaskDelay(pdMS_TO_TICKS(2000));
+    result = leftEsc.install(static_cast<gpio_num_t>(drive->_leftEscPin), RMT_CHANNEL_0);
+    result = rightEsc.install(static_cast<gpio_num_t>(drive->_rightEscPin), RMT_CHANNEL_1);
+    if (result != 0)
+        GSD_DEBUG("failed to install esc");
+
+    result = leftEsc.init();
+    result = rightEsc.init();
+    if (result != 0)
+        GSD_DEBUG("failed to init esc");
+
+    for (int i = 0; i < 2000; i++) {
+        leftEsc.sendThrottle(0);
+        rightEsc.sendThrottle(0);
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+
+    while (drive->_running) {
+        esp_err_t result = ESP_FAIL;
+
+        int16_t left = 0;
+        int16_t right = 0;
+
+        // if (drive->_isRecovering) {
+        // etl::optional<int16_t> leftResult = drive->_driveHistory.rewind(0);
+        // etl::optional<int16_t> rightResult = drive->_driveHistory.rewind(1);
+
+        // if (leftResult && rightResult) {
+        //     left = leftResult.value();
+        //     right = rightResult.value();
+        // } else {
+        //     drive->_isRecovering = false;
+        // }
+        // } else {
+        int16_t f = drive->_forward.load();
+        int16_t y = drive->_yaw.load();
+
+        left = constrain(f - y, 0, 500);
+        right = constrain(f + y, 0, 500);
+
+        // drive->_driveHistory.push(0, left);
+        // drive->_driveHistory.push(1, right);
+        // }
+
+        result = leftEsc.sendThrottle(left);
+        result = rightEsc.sendThrottle(right);
+
+        if (result != ESP_OK)
+            drive->_isOk = false;
+        else
+            drive->_isOk = true;
+
+        vTaskDelay(pdMS_TO_TICKS(20));
+    }
+
+    leftEsc.uninstall();
+    rightEsc.uninstall();
+
+    drive->_isOk = false;
+}

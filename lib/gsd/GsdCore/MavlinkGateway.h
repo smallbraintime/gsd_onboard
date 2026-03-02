@@ -49,7 +49,6 @@ class MavlinkGateway {
             _videoStream.stop();
             _dataTxTicker.stop();
             _heartbeatTxTicker.stop();
-            _drive.recover();
         }
     }
 
