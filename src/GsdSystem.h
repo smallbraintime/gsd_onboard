@@ -20,13 +20,13 @@ class GsdSystem {
             int32_t batteryMinMv = 6400;
             float voltageDivider = 3.0f;
 
-            uint8_t batteryRxPin = 14;
-            uint8_t gpsRxPin = 0;
+            uint8_t batteryRxPin = -1;
+            uint8_t gpsRxPin = -1;
 
-            uint8_t d0 = 3;
-            uint8_t d1 = 46;
-            uint8_t d2 = 45;
-            uint8_t d3 = 47;
+            uint8_t d0 = 46;
+            uint8_t d1 = 3;
+            uint8_t d2 = 19;
+            uint8_t d3 = 21;
 
             camera_config_t camera{
                 .pin_pwdn = -1,

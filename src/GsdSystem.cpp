@@ -31,11 +31,7 @@ void GsdSystem::stop() {
     _socket.stop();
 }
 
-void GsdSystem::update() {
-    // if (_mavGateway)
-    //     _mavGateway->update();
-    // vTaskDelay(pdMS_TO_TICKS(25));
-}
+void GsdSystem::update() {}
 
 void GsdSystem::mavGatewayUpdate(void* pvParameters) {
     gsd::MavlinkGateway<GsdTicker>* mavGateway =
